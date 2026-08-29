@@ -1,0 +1,30 @@
+version: "3"
+
+tasks:
+  default:
+    desc: Run all repository checks.
+    cmds:
+      - task: check
+
+  format:
+    desc: Format Go source files.
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Verify Go formatting and run static analysis.
+    cmds:
+      - test -z "$(gofmt -l .)"
+      - go vet ./...
+
+  build:
+    desc: Build the Hostero DevKit CLI.
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/hostero-devkit ./apps/devkit/cmd/hostero-devkit
+
+  check:
+    desc: Run formatting verification, static analysis, and a build.
+    cmds:
+      - task: lint
+      - task: build

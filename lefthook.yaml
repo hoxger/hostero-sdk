@@ -1,0 +1,9 @@
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: test -z "$(gofmt -l .)"
+    govet:
+      glob: "*.go"
+      run: go vet ./...
