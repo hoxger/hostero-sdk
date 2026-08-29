@@ -1,6 +1,8 @@
 package contract_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -22,7 +24,7 @@ func TestBuildFixture(t *testing.T) {
 	if document.Title != "Hostero API" || document.Version != "mvp" || document.ServerURL != "https://api.hostero.gg/v1" {
 		t.Fatalf("unexpected document identity: %#v", document)
 	}
-	if len(document.Models) != 6 || len(document.Enums) != 1 || len(document.Aliases) != 0 {
+	if len(document.Models) != 6 || len(document.Enums) != 1 || len(document.Aliases) != 0 || len(document.Operations) != 3 {
 		t.Fatalf("unexpected contract sizes: %#v", document)
 	}
 
@@ -38,7 +40,48 @@ func TestBuildFixture(t *testing.T) {
 	if field := findField(t, server, "primary_allocation"); field.Type.Kind != contract.KindModel || field.Type.Name != "PrimaryAllocation" || !field.Type.Nullable {
 		t.Fatalf("unexpected primary_allocation field: %#v", field)
 	}
+	list := findOperation(t, document.Operations, "listGameServers")
+	if list.Method != "GET" || list.Path != "/servers" || strings.Join(list.Permissions, ",") != "game_servers.view" || strings.Join(list.TargetKinds, ",") != "game_server" {
+		t.Fatalf("unexpected list operation: %#v", list)
+	}
+	if len(list.Parameters) != 2 || list.Parameters[0].Location != contract.ParameterQuery || list.Parameters[0].Name != "limit" || list.Success.Status != 200 || list.Success.Type == nil || list.Success.Type.Name != "PaginatedGameServers" {
+		t.Fatalf("unexpected list operation shape: %#v", list)
+	}
+	restart := findOperation(t, document.Operations, "restartGameServer")
+	if restart.Method != "POST" || restart.Success.Status != 204 || restart.Success.Type != nil || len(restart.Parameters) != 1 || restart.Parameters[0].Location != contract.ParameterPath {
+		t.Fatalf("unexpected restart operation: %#v", restart)
+	}
 
+}
+
+func TestBuildPinnedPublicSnapshotOperations(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "openapi", "hostero.openapi.json"))
+	if err != nil {
+		t.Fatalf("read pinned public OpenAPI: %v", err)
+	}
+	parsed, err := openapi.Parse(source.Document{Bytes: contents})
+	if err != nil {
+		t.Fatalf("parse pinned public OpenAPI: %v", err)
+	}
+	document, err := contract.Build(parsed)
+	if err != nil {
+		t.Fatalf("build pinned public contract: %v", err)
+	}
+	if len(document.Operations) < 80 {
+		t.Fatalf("public operation count = %d, want at least 80", len(document.Operations))
+	}
+
+	attachment := findOperation(t, document.Operations, "tickets_messages_attachments_create")
+	if attachment.RequestBody == nil || attachment.RequestBody.ContentType != "multipart/form-data" || attachment.RequestBody.Type.Kind != contract.KindModel || attachment.Success.Status != 201 || attachment.Success.Type == nil || attachment.Success.Type.Name != "TicketAttachmentResource" {
+		t.Fatalf("unexpected attachment operation: %#v", attachment)
+	}
+	download := findOperation(t, document.Operations, "servers_backups_download_list")
+	if download.Success.Status != 302 || download.Success.Type != nil || strings.Join(download.Permissions, ",") != "game_servers.backups.download" {
+		t.Fatalf("unexpected backup download operation: %#v", download)
+	}
+	if len(download.Errors) != 6 || download.Errors[0].Status != 401 || download.Errors[len(download.Errors)-1].Status != 429 {
+		t.Fatalf("unexpected standard errors: %#v", download.Errors)
+	}
 }
 
 func TestBuildRejectsUnsupportedContracts(t *testing.T) {
@@ -169,4 +212,15 @@ func findAlias(t *testing.T, aliases []contract.Alias, name string) contract.Ali
 	}
 	t.Fatalf("alias %q not found", name)
 	return contract.Alias{}
+}
+
+func findOperation(t *testing.T, operations []contract.Operation, id string) contract.Operation {
+	t.Helper()
+	for _, operation := range operations {
+		if operation.ID == id {
+			return operation
+		}
+	}
+	t.Fatalf("operation %q not found", id)
+	return contract.Operation{}
 }

@@ -20,8 +20,11 @@
             "ApiKey": []
           }
         ],
-        "x-hostero-required-scopes": [
-          "servers:read"
+        "x-hostero-required-permissions": [
+          "game_servers.view"
+        ],
+        "x-hostero-target-kind": [
+          "game_server"
         ],
         "parameters": [
           {
@@ -67,8 +70,11 @@
             "ApiKey": []
           }
         ],
-        "x-hostero-required-scopes": [
-          "servers:read"
+        "x-hostero-required-permissions": [
+          "game_servers.view"
+        ],
+        "x-hostero-target-kind": [
+          "game_server"
         ],
         "responses": {
           "200": {
@@ -93,8 +99,11 @@
             "ApiKey": []
           }
         ],
-        "x-hostero-required-scopes": [
-          "servers:power"
+        "x-hostero-required-permissions": [
+          "game_servers.power.restart"
+        ],
+        "x-hostero-target-kind": [
+          "game_server"
         ],
         "parameters": [
           {

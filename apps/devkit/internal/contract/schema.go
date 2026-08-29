@@ -261,7 +261,7 @@ func validateSchemaKeywords(schema *openapi3.Schema) error {
 	if len(schema.AllOf) != 0 || schema.Not != nil {
 		return fmt.Errorf("schema allOf and not are not supported")
 	}
-	if schema.Always != nil || schema.Contains != nil || len(schema.PrefixItems) != 0 || len(schema.PatternProperties) != 0 || schema.PropertyNames != nil || schema.If != nil || schema.Then != nil || schema.Else != nil {
+	if schema.Always != nil || schema.Contains != nil || len(schema.PrefixItems) != 0 || len(schema.PatternProperties) != 0 || schema.If != nil || schema.Then != nil || schema.Else != nil {
 		return fmt.Errorf("advanced JSON Schema keywords are not supported")
 	}
 	return nil
@@ -275,6 +275,9 @@ func isMapSchema(schema *openapi3.Schema) bool {
 }
 
 func mapValueType(schema *openapi3.Schema, classes map[string]Kind) (Type, error) {
+	if err := validateMapKeySchema(schema.PropertyNames); err != nil {
+		return Type{}, err
+	}
 	if schema.AdditionalProperties.Schema != nil {
 		return buildType(schema.AdditionalProperties.Schema, classes)
 	}
@@ -282,6 +285,23 @@ func mapValueType(schema *openapi3.Schema, classes map[string]Kind) (Type, error
 		return Type{Kind: KindAny}, nil
 	}
 	return Type{}, fmt.Errorf("object map values are required")
+}
+
+func validateMapKeySchema(reference *openapi3.SchemaRef) error {
+	if reference == nil {
+		return nil
+	}
+	if reference.Ref != "" || reference.Value == nil {
+		return fmt.Errorf("map property names must be defined locally")
+	}
+	schema := reference.Value
+	if len(schema.AllOf) != 0 || len(schema.AnyOf) != 0 || len(schema.OneOf) != 0 || schema.Not != nil || schema.Always != nil || schema.Contains != nil || len(schema.PrefixItems) != 0 || len(schema.PatternProperties) != 0 || schema.PropertyNames != nil || schema.If != nil || schema.Then != nil || schema.Else != nil {
+		return fmt.Errorf("map property name schema is not supported")
+	}
+	if schema.Type != nil && len(schema.Type.Slice()) != 0 && !schema.Type.Is(openapi3.TypeString) {
+		return fmt.Errorf("map property names must be strings")
+	}
+	return nil
 }
 
 func componentSchema(name string, reference *openapi3.SchemaRef) (*openapi3.Schema, error) {

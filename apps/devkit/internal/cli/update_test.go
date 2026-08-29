@@ -87,3 +87,63 @@ func TestUpdateFetchesAndPinsOpenAPIContract(t *testing.T) {
 		t.Fatalf("unexpected update output: %q", output.String())
 	}
 }
+
+func TestUpdateRejectsContractWithoutRequiredPermissions(t *testing.T) {
+	updatedSpecification := bytes.Replace(
+		bootstrap.OpenAPI(),
+		[]byte(`"x-hostero-required-permissions"`),
+		[]byte(`"x-hostero-required-permissions-removed"`),
+		1,
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(updatedSpecification)
+	}))
+	t.Cleanup(server.Close)
+
+	workingDirectory := t.TempDir()
+	configuration := config.New(config.DefaultTarget())
+	configuration.OpenAPI.Source.URL = server.URL
+	if err := config.WriteNew(filepath.Join(workingDirectory, config.FileName), configuration); err != nil {
+		t.Fatalf("write configuration: %v", err)
+	}
+	bootstrapDocument := source.Document{Bytes: bootstrap.OpenAPI()}
+	if err := source.WriteSnapshot(workingDirectory, configuration.OpenAPI, bootstrapDocument); err != nil {
+		t.Fatalf("write bootstrap snapshot: %v", err)
+	}
+	pinned, err := source.Resolve(workingDirectory, configuration.OpenAPI)
+	if err != nil {
+		t.Fatalf("resolve bootstrap snapshot: %v", err)
+	}
+	if err := lock.WriteNew(filepath.Join(workingDirectory, lock.FileName), lock.New(pinned)); err != nil {
+		t.Fatalf("write bootstrap lock: %v", err)
+	}
+
+	previousDirectory, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("get working directory: %v", err)
+	}
+	if err := os.Chdir(workingDirectory); err != nil {
+		t.Fatalf("change working directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previousDirectory); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
+
+	command := NewRootCommand("test", strings.NewReader(""), &bytes.Buffer{}, &bytes.Buffer{})
+	command.SetArgs([]string{"update"})
+	err = command.Execute()
+	if err == nil || !strings.Contains(err.Error(), "x-hostero-required-permissions is required") {
+		t.Fatalf("update error = %v, want missing permissions", err)
+	}
+
+	after, err := source.Resolve(workingDirectory, configuration.OpenAPI)
+	if err != nil {
+		t.Fatalf("resolve snapshot after failed update: %v", err)
+	}
+	if after.SHA256 != pinned.SHA256 {
+		t.Fatalf("snapshot changed after failed update: %s != %s", after.SHA256, pinned.SHA256)
+	}
+}

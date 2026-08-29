@@ -17,12 +17,13 @@ const (
 )
 
 type Document struct {
-	Title     string
-	Version   string
-	ServerURL string
-	Models    []Model
-	Enums     []Enum
-	Aliases   []Alias
+	Title      string
+	Version    string
+	ServerURL  string
+	Models     []Model
+	Enums      []Enum
+	Aliases    []Alias
+	Operations []Operation
 }
 
 type Model struct {
@@ -53,4 +54,45 @@ type Type struct {
 	Nullable bool
 	Items    *Type
 	Values   []Type
+}
+
+type ParameterLocation string
+
+const (
+	ParameterPath   ParameterLocation = "path"
+	ParameterQuery  ParameterLocation = "query"
+	ParameterHeader ParameterLocation = "header"
+	ParameterCookie ParameterLocation = "cookie"
+)
+
+type Operation struct {
+	ID          string
+	Method      string
+	Path        string
+	Tags        []string
+	Permissions []string
+	TargetKinds []string
+	Parameters  []Parameter
+	RequestBody *RequestBody
+	Success     Response
+	Errors      []Response
+}
+
+type Parameter struct {
+	Name     string
+	Location ParameterLocation
+	Required bool
+	Type     Type
+}
+
+type RequestBody struct {
+	Required    bool
+	ContentType string
+	Type        Type
+}
+
+type Response struct {
+	Status      int
+	ContentType string
+	Type        *Type
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/lock"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
@@ -47,8 +48,12 @@ func runUpdate(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := openapi.Parse(document); err != nil {
+	parsed, err := openapi.Parse(document)
+	if err != nil {
 		return fmt.Errorf("validate fetched OpenAPI contract: %w", err)
+	}
+	if _, err := contract.Build(parsed); err != nil {
+		return fmt.Errorf("build fetched OpenAPI contract: %w", err)
 	}
 
 	if err := source.WriteSnapshot(workingDirectory, configuration.OpenAPI, document); err != nil {
