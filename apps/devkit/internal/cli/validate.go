@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 	"github.com/spf13/cobra"
@@ -34,7 +35,11 @@ func runValidate(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := openapi.Parse(document); err != nil {
+	parsed, err := openapi.Parse(document)
+	if err != nil {
+		return err
+	}
+	if _, err := contract.Build(parsed); err != nil {
 		return err
 	}
 
