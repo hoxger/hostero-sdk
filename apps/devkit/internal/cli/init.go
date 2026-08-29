@@ -59,7 +59,7 @@ func promptOutput(reader *bufio.Reader, writer io.Writer, defaultValue string) (
 			return "", err
 		}
 
-		if err := validateOutput(output); err == nil {
+		if err := config.ValidateOutput(output); err == nil {
 			return output, nil
 		}
 
@@ -79,12 +79,4 @@ func prompt(reader *bufio.Reader, writer io.Writer, label string, defaultValue s
 		return defaultValue, nil
 	}
 	return value, nil
-}
-
-func validateOutput(output string) error {
-	cleaned := filepath.Clean(output)
-	if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
-		return errors.New("output escapes the project directory")
-	}
-	return nil
 }

@@ -2,8 +2,12 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -93,5 +97,69 @@ func WriteNew(path string, file File) error {
 		return fmt.Errorf("close %s: %w", FileName, err)
 	}
 
+	return nil
+}
+
+func Load(path string) (File, error) {
+	handle, err := os.Open(path)
+	if err != nil {
+		return File{}, fmt.Errorf("open %s: %w", filepath.Base(path), err)
+	}
+	defer handle.Close()
+
+	decoder := yaml.NewDecoder(handle)
+	decoder.KnownFields(true)
+
+	var file File
+	if err := decoder.Decode(&file); err != nil {
+		return File{}, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
+	}
+
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return File{}, fmt.Errorf("decode %s: expected one YAML document", filepath.Base(path))
+		}
+		return File{}, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
+	}
+
+	if err := file.Validate(); err != nil {
+		return File{}, fmt.Errorf("validate %s: %w", filepath.Base(path), err)
+	}
+
+	return file, nil
+}
+
+func (file File) Validate() error {
+	if file.Version != 1 {
+		return fmt.Errorf("unsupported config version %d", file.Version)
+	}
+	if file.OpenAPI.Source != "hostero" {
+		return fmt.Errorf("unsupported OpenAPI source %q", file.OpenAPI.Source)
+	}
+	if strings.TrimSpace(file.OpenAPI.Release) == "" {
+		return errors.New("OpenAPI release is required")
+	}
+	if len(file.Targets) == 0 {
+		return errors.New("at least one target is required")
+	}
+
+	for index, target := range file.Targets {
+		if !target.Language.IsSupported() {
+			return fmt.Errorf("target %d uses unsupported language %q", index+1, target.Language)
+		}
+		if err := ValidateOutput(target.Output); err != nil {
+			return fmt.Errorf("target %d: %w", index+1, err)
+		}
+	}
+
+	return nil
+}
+
+func ValidateOutput(output string) error {
+	cleaned := filepath.Clean(output)
+	if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return errors.New("output must stay inside the current project directory")
+	}
 	return nil
 }
