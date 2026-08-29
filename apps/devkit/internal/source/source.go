@@ -3,7 +3,6 @@ package source
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,16 +62,6 @@ func Resolve(projectDirectory string, openAPI config.OpenAPI) (Document, error) 
 	contents, err := os.ReadFile(candidate)
 	if err != nil {
 		return Document{}, fmt.Errorf("read OpenAPI source: %w", err)
-	}
-
-	var header struct {
-		OpenAPI string `json:"openapi"`
-	}
-	if err := json.Unmarshal(contents, &header); err != nil {
-		return Document{}, fmt.Errorf("decode OpenAPI JSON: %w", err)
-	}
-	if !strings.HasPrefix(header.OpenAPI, "3.1.") {
-		return Document{}, fmt.Errorf("unsupported OpenAPI version %q", header.OpenAPI)
 	}
 
 	digest := sha256.Sum256(contents)
