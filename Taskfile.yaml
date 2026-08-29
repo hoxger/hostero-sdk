@@ -17,6 +17,18 @@ tasks:
       - test -z "$(gofmt -l .)"
       - go vet ./...
 
+  test:
+    desc: Run all test suites.
+    cmds:
+      - task: devkit:test
+      - task: python:test
+
+  devkit:test:
+    desc: Run DevKit Go unit tests.
+    dir: apps/devkit
+    cmds:
+      - go test ./...
+
   build:
     desc: Build the Hostero DevKit CLI.
     cmds:
@@ -27,6 +39,7 @@ tasks:
     desc: Run repository and Python SDK checks.
     cmds:
       - task: lint
+      - task: devkit:test
       - task: build
       - task: python:check
 

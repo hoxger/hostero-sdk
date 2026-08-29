@@ -14,9 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  devkit:
+    name: DevKit
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -35,20 +36,50 @@ jobs:
       - name: Run static analysis
         run: go vet ./...
 
-  build:
+      - name: Run unit tests
+        run: go test -v ./...
+        working-directory: apps/devkit
+
+      - name: Build CLI
+        run: go build -o bin/hostero-devkit ./apps/devkit/cmd/hostero-devkit
+
+      - name: Verify generator output is in sync
+        run: |
+          bin/hostero-devkit generate
+          git diff --exit-code
+
+  python:
+    name: Python SDK
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/python
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
         with:
-          go-version-file: go.mod
-          cache: false
+          enable-cache: true
 
-      - name: Build DevKit
-        run: go build ./...
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Verify formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type-check
+        run: uv run ty check src tests
+
+      - name: Run tests
+        run: uv run pytest
