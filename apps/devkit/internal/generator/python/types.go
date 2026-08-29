@@ -14,20 +14,22 @@ type GenerationMetadata struct {
 type ModuleKind string
 
 const (
-	ModuleInit   ModuleKind = "init"
-	ModuleEnums  ModuleKind = "enums"
-	ModuleModels ModuleKind = "models"
-	ModuleTypes  ModuleKind = "types"
+	ModuleInit       ModuleKind = "init"
+	ModuleEnums      ModuleKind = "enums"
+	ModuleModels     ModuleKind = "models"
+	ModuleOperations ModuleKind = "operations"
+	ModuleTypes      ModuleKind = "types"
 )
 
 type Module struct {
-	Kind    ModuleKind
-	Path    string
-	Imports []Import
-	Enums   []Enum
-	Models  []Model
-	Aliases []Alias
-	Exports []string
+	Kind       ModuleKind
+	Path       string
+	Imports    []Import
+	Enums      []Enum
+	Models     []Model
+	Operations []Operation
+	Aliases    []Alias
+	Exports    []string
 }
 
 type Import struct {
@@ -57,6 +59,14 @@ type EnumMember struct {
 type Model struct {
 	Name   string
 	Fields []Field
+}
+
+type Operation struct {
+	ID          string
+	Method      string
+	Path        string
+	Permissions []string
+	TargetKinds []string
 }
 
 type Alias struct {

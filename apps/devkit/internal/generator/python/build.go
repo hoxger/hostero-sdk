@@ -26,6 +26,7 @@ func Build(source contract.Document) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+	operations := buildOperations(source.Operations)
 	exports := make([]string, 0, len(enums)+len(models)+len(aliases))
 	for _, enum := range enums {
 		exports = append(exports, enum.Name)
@@ -66,7 +67,36 @@ func Build(source contract.Document) (Document, error) {
 			Aliases: aliases,
 		})
 	}
+	if len(operations) != 0 {
+		modules = append(modules, Module{
+			Kind:       ModuleOperations,
+			Path:       "operations.py",
+			Imports:    operationModuleImports(),
+			Operations: operations,
+		})
+		modules[0].Imports = append(modules[0].Imports, Import{
+			Group:  ImportLocal,
+			Module: ".operations",
+			Names:  []string{"OPERATIONS", "Operation"},
+		})
+		modules[0].Exports = append(modules[0].Exports, "OPERATIONS", "Operation")
+		sort.Strings(modules[0].Exports)
+	}
 	return Document{Modules: modules}, nil
+}
+
+func buildOperations(source []contract.Operation) []Operation {
+	operations := make([]Operation, 0, len(source))
+	for _, sourceOperation := range source {
+		operations = append(operations, Operation{
+			ID:          sourceOperation.ID,
+			Method:      sourceOperation.Method,
+			Path:        sourceOperation.Path,
+			Permissions: append([]string(nil), sourceOperation.Permissions...),
+			TargetKinds: append([]string(nil), sourceOperation.TargetKinds...),
+		})
+	}
+	return operations
 }
 
 type symbols struct {
@@ -257,6 +287,14 @@ func enumModuleImports(enums []Enum) []Import {
 		return nil
 	}
 	return []Import{{Group: ImportStandard, Module: "enum", Names: []string{"Enum"}}}
+}
+
+func operationModuleImports() []Import {
+	return []Import{
+		{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}},
+		{Group: ImportStandard, Module: "dataclasses", Names: []string{"dataclass"}},
+		{Group: ImportStandard, Module: "typing", Names: []string{"Final"}},
+	}
 }
 
 func modelModuleImports(models []Model, dependencies modelDependencies) []Import {

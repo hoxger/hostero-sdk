@@ -28,6 +28,26 @@ class {{ .Name }}:
 {{ if .Fields }}{{ range .Fields }}    {{ .Name }}: {{ .Type }}{{ fieldDefault . }}
 {{ end }}{{ else }}    pass
 {{ end }}{{ end }}`),
+	ModuleOperations: newModuleTemplate("operations", `{{ .Header }}{{ imports .Imports }}
+
+@dataclass(frozen=True, slots=True)
+class Operation:
+    operation_id: str
+    method: str
+    path: str
+    required_permissions: tuple[str, ...]
+    target_kinds: tuple[str, ...]
+
+
+OPERATIONS: Final[tuple[Operation, ...]] = (
+{{ range .Operations }}    Operation(
+        operation_id={{ quote .ID }},
+        method={{ quote .Method }},
+        path={{ quote .Path }},
+        required_permissions={{ stringTuple .Permissions }},
+        target_kinds={{ stringTuple .TargetKinds }},
+    ),
+{{ end }})`),
 	ModuleTypes: newModuleTemplate("types", `{{ .Header }}{{ imports .Imports }}{{ range .Aliases }}
 
 {{ .Name }}: TypeAlias = {{ if .QuotedType }}{{ quote .Type }}{{ else }}{{ .Type }}{{ end }}
@@ -71,7 +91,19 @@ func newModuleTemplate(name string, contents string) *template.Template {
 		"imports":      renderImports,
 		"join":         strings.Join,
 		"quote":        strconv.Quote,
+		"stringTuple":  renderStringTuple,
 	}).Parse(contents))
+}
+
+func renderStringTuple(values []string) string {
+	if len(values) == 0 {
+		return "()"
+	}
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, strconv.Quote(value))
+	}
+	return "(" + strings.Join(items, ", ") + ",)"
 }
 
 func generatedHeader(metadata GenerationMetadata) string {

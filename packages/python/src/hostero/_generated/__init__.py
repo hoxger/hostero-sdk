@@ -128,6 +128,7 @@ from .models import (
     ValidationErrorDetail,
     ValidationErrorResponse,
 )
+from .operations import OPERATIONS, Operation
 from .types import (
     JsonObjectInput,
     JsonObjectOutput,
@@ -231,6 +232,8 @@ __all__ = [
     "ManagedDomainOptionResource",
     "MessageKind",
     "MinecraftInstallerReinstallRequest",
+    "OPERATIONS",
+    "Operation",
     "PaginatedResponseAxonOperationResource",
     "PaginatedResponseGameServerActivityResource",
     "PaginatedResponseGameServerListItemResource",

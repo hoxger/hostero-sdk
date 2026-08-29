@@ -18,8 +18,8 @@ func TestBuildAndRenderFixture(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if len(document.Modules) != 3 {
-		t.Fatalf("module count = %d, want 3", len(document.Modules))
+	if len(document.Modules) != 4 {
+		t.Fatalf("module count = %d, want 4", len(document.Modules))
 	}
 	models := document.Modules[2].Models
 	if models[1].Name != "GameServerListItem" || models[1].Fields[0].Type != "str | None" || !models[1].Fields[0].Required {
@@ -37,7 +37,7 @@ func TestBuildAndRenderFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
-	for _, path := range []string{"__init__.py", "enums.py", "models.py"} {
+	for _, path := range []string{"__init__.py", "enums.py", "models.py", "operations.py"} {
 		want, err := os.ReadFile(filepath.Join("testdata", "fixture", path))
 		if err != nil {
 			t.Fatalf("read golden file %q: %v", path, err)
@@ -45,6 +45,27 @@ func TestBuildAndRenderFixture(t *testing.T) {
 		if got := string(files[path]); got != string(want) {
 			t.Errorf("rendered %s does not match golden file\nwant:\n%s\ngot:\n%s", path, want, got)
 		}
+	}
+}
+
+func TestBuildRendersOperationPermissions(t *testing.T) {
+	document, err := Build(fixtureContract(t))
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	operations := document.Modules[3].Operations
+	if len(operations) != 3 {
+		t.Fatalf("operation count = %d, want 3", len(operations))
+	}
+	if operation := operations[2]; operation.ID != "restartGameServer" || strings.Join(operation.Permissions, ",") != "game_servers.power.restart" || strings.Join(operation.TargetKinds, ",") != "game_server" {
+		t.Fatalf("unexpected operation metadata: %#v", operation)
+	}
+	files, err := Render(document, fixtureMetadata)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if rendered := string(files["operations.py"]); !strings.Contains(rendered, `operation_id="restartGameServer"`) || !strings.Contains(rendered, `required_permissions=("game_servers.power.restart",)`) || !strings.Contains(rendered, `target_kinds=("game_server",)`) {
+		t.Fatalf("operation metadata was not rendered: %s", rendered)
 	}
 }
 

@@ -5,11 +5,14 @@
 # sha256: 03c46244b097e10690b86591c5619747855cc1a6cb7f76214c99daeb8648f4d4
 from .enums import GameServerStatus
 from .models import GameServerLimits, GameServerListItem, PaginatedGameServers, PrimaryAllocation, ServerOverviewItem, ServersOverview
+from .operations import OPERATIONS, Operation
 
 __all__ = [
     "GameServerLimits",
     "GameServerListItem",
     "GameServerStatus",
+    "OPERATIONS",
+    "Operation",
     "PaginatedGameServers",
     "PrimaryAllocation",
     "ServerOverviewItem",
