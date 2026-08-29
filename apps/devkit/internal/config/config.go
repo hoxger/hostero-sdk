@@ -64,7 +64,7 @@ type Target struct {
 func DefaultTarget() Target {
 	return Target{
 		Language: LanguagePython,
-		Output:   "./src/hostero_sdk",
+		Output:   "./packages/python/src/hostero",
 	}
 }
 
