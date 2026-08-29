@@ -101,6 +101,61 @@ func TestBuildMapsNamesAndRejectsCollisions(t *testing.T) {
 	}
 }
 
+func TestBuildRendersJSONTypeAliases(t *testing.T) {
+	jsonValue := contract.Type{Kind: contract.KindAlias, Name: "JSONValue"}
+	document, err := Build(contract.Document{
+		Aliases: []contract.Alias{
+			{
+				Name: "JSONScalar",
+				Type: contract.Type{
+					Kind:     contract.KindUnion,
+					Nullable: true,
+					Values: []contract.Type{
+						{Kind: contract.KindString},
+						{Kind: contract.KindInteger},
+						{Kind: contract.KindBoolean},
+					},
+				},
+			},
+			{
+				Name: "JSONValue",
+				Type: contract.Type{Kind: contract.KindUnion, Values: []contract.Type{
+					{Kind: contract.KindAlias, Name: "JSONScalar"},
+					{Kind: contract.KindMap, Items: &jsonValue},
+					{Kind: contract.KindArray, Items: &jsonValue},
+				}},
+			},
+		},
+		Models: []contract.Model{{
+			Name: "Envelope",
+			Fields: []contract.Field{
+				{Name: "payload", Required: true, Type: jsonValue},
+				{Name: "metadata", Required: false, Type: contract.Type{Kind: contract.KindMap, Items: &contract.Type{Kind: contract.KindAny}}},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+	files, err := Render(document, fixtureMetadata)
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+
+	types := string(files["types.py"])
+	if !strings.Contains(types, "from typing import TypeAlias") || !strings.Contains(types, "JsonScalar: TypeAlias = str | int | bool | None") || !strings.Contains(types, "JsonValue: TypeAlias = \"JsonScalar | dict[str, JsonValue] | list[JsonValue]\"") {
+		t.Fatalf("unexpected rendered type aliases: %s", types)
+	}
+	models := string(files["models.py"])
+	if !strings.Contains(models, "from typing import Any") || !strings.Contains(models, "from .types import JsonValue") || strings.Contains(models, "JsonScalar") || !strings.Contains(models, "metadata: dict[str, Any] | None = None") {
+		t.Fatalf("unexpected rendered model types: %s", models)
+	}
+	init := string(files["__init__.py"])
+	if !strings.Contains(init, "from .types import JsonScalar, JsonValue") || !strings.Contains(init, `"JsonValue",`) {
+		t.Fatalf("generated aliases are not exported: %s", init)
+	}
+}
+
 func TestRenderRejectsInvalidGenerationMetadata(t *testing.T) {
 	_, err := Render(Document{}, GenerationMetadata{DevKitVersion: "test"})
 	if err == nil || !strings.Contains(err.Error(), "OpenAPI source") {

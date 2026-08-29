@@ -22,7 +22,7 @@ func TestBuildFixture(t *testing.T) {
 	if document.Title != "Hostero API" || document.Version != "mvp" || document.ServerURL != "https://api.hostero.gg/v1" {
 		t.Fatalf("unexpected document identity: %#v", document)
 	}
-	if len(document.Models) != 6 || len(document.Enums) != 1 || len(document.Operations) != 3 {
+	if len(document.Models) != 6 || len(document.Enums) != 1 || len(document.Aliases) != 0 {
 		t.Fatalf("unexpected contract sizes: %#v", document)
 	}
 
@@ -39,16 +39,6 @@ func TestBuildFixture(t *testing.T) {
 		t.Fatalf("unexpected primary_allocation field: %#v", field)
 	}
 
-	operations := document.Operations
-	if operations[0].ID != "listGameServers" || operations[1].ID != "getServersOverview" || operations[2].ID != "restartGameServer" {
-		t.Fatalf("operations are not deterministic: %#v", operations)
-	}
-	if len(operations[0].Parameters) != 2 || operations[0].Parameters[0].Name != "limit" || operations[0].Parameters[0].Default != float64(20) || operations[0].Parameters[1].Name != "offset" || operations[0].Parameters[1].Default != float64(0) {
-		t.Fatalf("unexpected listGameServers parameters: %#v", operations[0].Parameters)
-	}
-	if operations[2].Method != "POST" || operations[2].Response.Status != 204 || operations[2].Response.Type != nil || strings.Join(operations[2].Scopes, ",") != "servers:power" {
-		t.Fatalf("unexpected restartGameServer operation: %#v", operations[2])
-	}
 }
 
 func TestBuildRejectsUnsupportedContracts(t *testing.T) {
@@ -58,26 +48,12 @@ func TestBuildRejectsUnsupportedContracts(t *testing.T) {
 		message string
 	}{
 		{
-			name: "missing required scopes",
-			mutate: func(parsed *openapi.Document) {
-				delete(parsed.Specification.Paths.Value("/servers").Get.Extensions, "x-hostero-required-scopes")
-			},
-			message: "x-hostero-required-scopes is required",
-		},
-		{
 			name: "anonymous object field",
 			mutate: func(parsed *openapi.Document) {
 				model := parsed.Specification.Components.Schemas["GameServerListItem"].Value
 				model.Properties["name"] = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
 			},
 			message: "anonymous object schemas are not supported",
-		},
-		{
-			name: "duplicate operation id",
-			mutate: func(parsed *openapi.Document) {
-				parsed.Specification.Paths.Value("/servers/overview").Get.OperationID = "listGameServers"
-			},
-			message: "operationId \"listGameServers\" is duplicated",
 		},
 	}
 
@@ -91,6 +67,65 @@ func TestBuildRejectsUnsupportedContracts(t *testing.T) {
 				t.Fatalf("Build() error = %v, want message containing %q", err, test.message)
 			}
 		})
+	}
+}
+
+func TestBuildSupportsJSONAliasesAndClosedModels(t *testing.T) {
+	parsed, err := openapi.Parse(source.Document{Bytes: []byte(`{
+  "openapi": "3.1.0",
+  "info": {"title": "Test API", "version": "v1"},
+  "servers": [{"url": "https://api.example.test/v1"}],
+  "paths": {},
+  "components": {
+    "securitySchemes": {"ApiKey": {"type": "http", "scheme": "bearer"}},
+    "schemas": {
+      "JSONScalar": {"anyOf": [{"type": "string"}, {"type": "integer"}, {"type": "boolean"}, {"type": "null"}]},
+      "JSONValue": {"anyOf": [
+        {"$ref": "#/components/schemas/JSONScalar"},
+        {"type": "object", "additionalProperties": {"$ref": "#/components/schemas/JSONValue"}},
+        {"type": "array", "items": {"$ref": "#/components/schemas/JSONValue"}}
+      ]},
+      "JSONObject": {"type": "object", "additionalProperties": {"$ref": "#/components/schemas/JSONValue"}},
+      "Envelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["payload"],
+        "properties": {
+          "payload": {"$ref": "#/components/schemas/JSONValue"},
+          "attributes": {"$ref": "#/components/schemas/JSONObject"},
+          "metadata": {"type": "object", "additionalProperties": true},
+          "detail": {"anyOf": [{}, {"type": "null"}]}
+        }
+      }
+    }
+  }
+}`)})
+	if err != nil {
+		t.Fatalf("parse JSON alias fixture: %v", err)
+	}
+
+	document, err := contract.Build(parsed)
+	if err != nil {
+		t.Fatalf("build JSON alias fixture: %v", err)
+	}
+	if len(document.Aliases) != 3 || len(document.Models) != 1 {
+		t.Fatalf("unexpected JSON alias contract: %#v", document)
+	}
+	if scalar := findAlias(t, document.Aliases, "JSONScalar"); scalar.Type.Kind != contract.KindUnion || !scalar.Type.Nullable || len(scalar.Type.Values) != 3 {
+		t.Fatalf("unexpected JSONScalar alias: %#v", scalar)
+	}
+	if value := findAlias(t, document.Aliases, "JSONValue"); value.Type.Kind != contract.KindUnion || len(value.Type.Values) != 3 || value.Type.Values[1].Kind != contract.KindMap || value.Type.Values[2].Kind != contract.KindArray {
+		t.Fatalf("unexpected JSONValue alias: %#v", value)
+	}
+	envelope := findModel(t, document.Models, "Envelope")
+	if field := findField(t, envelope, "payload"); field.Type.Kind != contract.KindAlias || field.Type.Name != "JSONValue" {
+		t.Fatalf("unexpected payload field: %#v", field)
+	}
+	if field := findField(t, envelope, "metadata"); field.Type.Kind != contract.KindMap || field.Type.Items == nil || field.Type.Items.Kind != contract.KindAny {
+		t.Fatalf("unexpected metadata field: %#v", field)
+	}
+	if field := findField(t, envelope, "detail"); field.Type.Kind != contract.KindAny || !field.Type.Nullable {
+		t.Fatalf("unexpected detail field: %#v", field)
 	}
 }
 
@@ -123,4 +158,15 @@ func findField(t *testing.T, model contract.Model, name string) contract.Field {
 	}
 	t.Fatalf("field %q not found in model %q", name, model.Name)
 	return contract.Field{}
+}
+
+func findAlias(t *testing.T, aliases []contract.Alias, name string) contract.Alias {
+	t.Helper()
+	for _, alias := range aliases {
+		if alias.Name == name {
+			return alias
+		}
+	}
+	t.Fatalf("alias %q not found", name)
+	return contract.Alias{}
 }

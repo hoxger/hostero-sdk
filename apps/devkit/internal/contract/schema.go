@@ -23,42 +23,53 @@ func classifyComponentSchemas(components *openapi3.Components) (map[string]Kind,
 		case isStringEnum(schema):
 			classes[name] = KindEnum
 		case schema.Type.Is(openapi3.TypeObject):
-			classes[name] = KindModel
+			if isMapSchema(schema) {
+				classes[name] = KindAlias
+			} else {
+				classes[name] = KindModel
+			}
 		default:
-			return nil, fmt.Errorf("component schema %q must be an object model or string enum", name)
+			classes[name] = KindAlias
 		}
 	}
 
 	return classes, nil
 }
 
-func buildComponentSchemas(components *openapi3.Components, classes map[string]Kind) ([]Model, []Enum, error) {
+func buildComponentSchemas(components *openapi3.Components, classes map[string]Kind) ([]Model, []Enum, []Alias, error) {
 	var models []Model
 	var enums []Enum
+	var aliases []Alias
 	for _, name := range sortedSchemaNames(components.Schemas) {
 		schema, err := componentSchema(name, components.Schemas[name])
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		switch classes[name] {
 		case KindModel:
 			model, err := buildModel(name, schema, classes)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			models = append(models, model)
 		case KindEnum:
 			enum, err := buildEnum(name, schema)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			enums = append(enums, enum)
+		case KindAlias:
+			typeValue, err := buildType(&openapi3.SchemaRef{Value: schema}, classes)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("alias %q: %w", name, err)
+			}
+			aliases = append(aliases, Alias{Name: name, Type: typeValue})
 		default:
-			return nil, nil, fmt.Errorf("component schema %q has unknown class", name)
+			return nil, nil, nil, fmt.Errorf("component schema %q has unknown class", name)
 		}
 	}
-	return models, enums, nil
+	return models, enums, aliases, nil
 }
 
 func buildModel(name string, schema *openapi3.Schema, classes map[string]Kind) (Model, error) {
@@ -84,7 +95,7 @@ func buildModel(name string, schema *openapi3.Schema, classes map[string]Kind) (
 }
 
 func buildEnum(name string, schema *openapi3.Schema) (Enum, error) {
-	if err := validateSimpleSchema(schema); err != nil {
+	if err := validateSchemaKeywords(schema); err != nil {
 		return Enum{}, fmt.Errorf("enum %q: %w", name, err)
 	}
 	if !schema.Type.Is(openapi3.TypeString) || len(schema.Enum) == 0 {
@@ -123,11 +134,20 @@ func buildType(reference *openapi3.SchemaRef, classes map[string]Kind) (Type, er
 	}
 
 	schema := reference.Value
-	if len(schema.OneOf) != 0 {
-		return buildNullableOneOf(schema, classes)
+	if len(schema.AnyOf) != 0 || len(schema.OneOf) != 0 {
+		if len(schema.AnyOf) != 0 && len(schema.OneOf) != 0 {
+			return Type{}, fmt.Errorf("schema cannot define both anyOf and oneOf")
+		}
+		if len(schema.AnyOf) != 0 {
+			return buildUnion(schema.AnyOf, classes)
+		}
+		return buildUnion(schema.OneOf, classes)
 	}
-	if err := validateSimpleSchema(schema); err != nil {
+	if err := validateSchemaKeywords(schema); err != nil {
 		return Type{}, err
+	}
+	if schema.Type == nil || len(schema.Type.Slice()) == 0 {
+		return Type{Kind: KindAny}, nil
 	}
 
 	nullable, typeName, err := schemaType(schema)
@@ -155,38 +175,47 @@ func buildType(reference *openapi3.SchemaRef, classes map[string]Kind) (Type, er
 		result.Kind = KindArray
 		result.Items = &items
 	case openapi3.TypeObject:
-		return Type{}, fmt.Errorf("anonymous object schemas are not supported")
+		if !isMapSchema(schema) {
+			return Type{}, fmt.Errorf("anonymous object schemas are not supported")
+		}
+		items, err := mapValueType(schema, classes)
+		if err != nil {
+			return Type{}, err
+		}
+		result.Kind = KindMap
+		result.Items = &items
 	default:
 		return Type{}, fmt.Errorf("unsupported schema type %q", typeName)
 	}
 	return result, nil
 }
 
-func buildNullableOneOf(schema *openapi3.Schema, classes map[string]Kind) (Type, error) {
-	if len(schema.OneOf) != 2 || schema.Type != nil || len(schema.AnyOf) != 0 || len(schema.AllOf) != 0 {
-		return Type{}, fmt.Errorf("only nullable oneOf schemas are supported")
+func buildUnion(references openapi3.SchemaRefs, classes map[string]Kind) (Type, error) {
+	if len(references) == 0 {
+		return Type{}, fmt.Errorf("schema union must contain at least one value")
 	}
 
-	var valueReference *openapi3.SchemaRef
-	for _, reference := range schema.OneOf {
+	values := make([]Type, 0, len(references))
+	nullable := false
+	for _, reference := range references {
 		if isNullSchema(reference) {
+			nullable = true
 			continue
 		}
-		if valueReference != nil {
-			return Type{}, fmt.Errorf("only nullable oneOf schemas are supported")
+		value, err := buildType(reference, classes)
+		if err != nil {
+			return Type{}, fmt.Errorf("union value: %w", err)
 		}
-		valueReference = reference
+		values = append(values, value)
 	}
-	if valueReference == nil {
-		return Type{}, fmt.Errorf("nullable oneOf schema must contain a value")
+	if len(values) == 0 {
+		return Type{}, fmt.Errorf("schema union must contain a non-null value")
 	}
-
-	result, err := buildType(valueReference, classes)
-	if err != nil {
-		return Type{}, err
+	if len(values) == 1 {
+		values[0].Nullable = values[0].Nullable || nullable
+		return values[0], nil
 	}
-	result.Nullable = true
-	return result, nil
+	return Type{Kind: KindUnion, Nullable: nullable, Values: values}, nil
 }
 
 func isNullSchema(reference *openapi3.SchemaRef) bool {
@@ -213,32 +242,46 @@ func schemaType(schema *openapi3.Schema) (bool, string, error) {
 }
 
 func validateObjectSchema(name string, schema *openapi3.Schema) error {
-	if err := validateSimpleSchema(schema); err != nil {
+	if err := validateSchemaKeywords(schema); err != nil {
 		return fmt.Errorf("model %q: %w", name, err)
 	}
 	if !schema.Type.Is(openapi3.TypeObject) {
 		return fmt.Errorf("model %q must be an object", name)
 	}
-	if schema.AdditionalProperties.Has != nil || schema.AdditionalProperties.Schema != nil {
-		return fmt.Errorf("model %q maps are not supported", name)
+	if isMapSchema(schema) {
+		return fmt.Errorf("model %q must not mix properties with additional properties", name)
 	}
 	return nil
 }
 
-func validateSimpleSchema(schema *openapi3.Schema) error {
+func validateSchemaKeywords(schema *openapi3.Schema) error {
 	if schema == nil {
 		return fmt.Errorf("schema is required")
 	}
-	if len(schema.AnyOf) != 0 || len(schema.AllOf) != 0 || schema.Not != nil {
-		return fmt.Errorf("schema unions are not supported")
+	if len(schema.AllOf) != 0 || schema.Not != nil {
+		return fmt.Errorf("schema allOf and not are not supported")
 	}
 	if schema.Always != nil || schema.Contains != nil || len(schema.PrefixItems) != 0 || len(schema.PatternProperties) != 0 || schema.PropertyNames != nil || schema.If != nil || schema.Then != nil || schema.Else != nil {
 		return fmt.Errorf("advanced JSON Schema keywords are not supported")
 	}
-	if schema.AdditionalProperties.Has != nil || schema.AdditionalProperties.Schema != nil {
-		return fmt.Errorf("maps are not supported")
-	}
 	return nil
+}
+
+func isMapSchema(schema *openapi3.Schema) bool {
+	if schema == nil || !schema.Type.Is(openapi3.TypeObject) || len(schema.Properties) != 0 {
+		return false
+	}
+	return schema.AdditionalProperties.Schema != nil || (schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has)
+}
+
+func mapValueType(schema *openapi3.Schema, classes map[string]Kind) (Type, error) {
+	if schema.AdditionalProperties.Schema != nil {
+		return buildType(schema.AdditionalProperties.Schema, classes)
+	}
+	if schema.AdditionalProperties.Has != nil && *schema.AdditionalProperties.Has {
+		return Type{Kind: KindAny}, nil
+	}
+	return Type{}, fmt.Errorf("object map values are required")
 }
 
 func componentSchema(name string, reference *openapi3.SchemaRef) (*openapi3.Schema, error) {

@@ -28,6 +28,10 @@ class {{ .Name }}:
 {{ if .Fields }}{{ range .Fields }}    {{ .Name }}: {{ .Type }}{{ fieldDefault . }}
 {{ end }}{{ else }}    pass
 {{ end }}{{ end }}`),
+	ModuleTypes: newModuleTemplate("types", `{{ .Header }}{{ imports .Imports }}{{ range .Aliases }}
+
+{{ .Name }}: TypeAlias = {{ if .QuotedType }}{{ quote .Type }}{{ else }}{{ .Type }}{{ end }}
+{{ end }}`),
 }
 
 func Render(document Document, metadata GenerationMetadata) (map[string][]byte, error) {

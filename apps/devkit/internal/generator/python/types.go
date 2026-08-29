@@ -17,6 +17,7 @@ const (
 	ModuleInit   ModuleKind = "init"
 	ModuleEnums  ModuleKind = "enums"
 	ModuleModels ModuleKind = "models"
+	ModuleTypes  ModuleKind = "types"
 )
 
 type Module struct {
@@ -25,6 +26,7 @@ type Module struct {
 	Imports []Import
 	Enums   []Enum
 	Models  []Model
+	Aliases []Alias
 	Exports []string
 }
 
@@ -55,6 +57,12 @@ type EnumMember struct {
 type Model struct {
 	Name   string
 	Fields []Field
+}
+
+type Alias struct {
+	Name       string
+	Type       string
+	QuotedType bool
 }
 
 type Field struct {

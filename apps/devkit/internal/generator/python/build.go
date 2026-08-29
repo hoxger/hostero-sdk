@@ -3,6 +3,7 @@ package python
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 )
@@ -17,28 +18,31 @@ func Build(source contract.Document) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+	aliases, aliasDependencies, err := buildAliases(source.Aliases, symbols)
+	if err != nil {
+		return Document{}, err
+	}
 	models, modelDependencies, err := buildModels(source.Models, symbols)
 	if err != nil {
 		return Document{}, err
 	}
-
-	exports := make([]string, 0, len(enums)+len(models))
+	exports := make([]string, 0, len(enums)+len(models)+len(aliases))
 	for _, enum := range enums {
 		exports = append(exports, enum.Name)
 	}
 	for _, model := range models {
 		exports = append(exports, model.Name)
 	}
+	for _, alias := range aliases {
+		exports = append(exports, alias.Name)
+	}
 	sort.Strings(exports)
 
-	return Document{Modules: []Module{
+	modules := []Module{
 		{
-			Kind: ModuleInit,
-			Path: "__init__.py",
-			Imports: []Import{
-				{Group: ImportLocal, Module: ".enums", Names: namesOfEnums(enums)},
-				{Group: ImportLocal, Module: ".models", Names: namesOfModels(models)},
-			},
+			Kind:    ModuleInit,
+			Path:    "__init__.py",
+			Imports: initModuleImports(enums, models, aliases),
 			Exports: exports,
 		},
 		{
@@ -53,18 +57,29 @@ func Build(source contract.Document) (Document, error) {
 			Imports: modelModuleImports(models, modelDependencies),
 			Models:  models,
 		},
-	}}, nil
+	}
+	if len(aliases) != 0 {
+		modules = append(modules, Module{
+			Kind:    ModuleTypes,
+			Path:    "types.py",
+			Imports: typeModuleImports(aliasDependencies),
+			Aliases: aliases,
+		})
+	}
+	return Document{Modules: modules}, nil
 }
 
 type symbols struct {
-	models map[string]string
-	enums  map[string]string
+	models  map[string]string
+	enums   map[string]string
+	aliases map[string]string
 }
 
 func buildSymbols(source contract.Document) (symbols, error) {
 	result := symbols{
-		models: make(map[string]string, len(source.Models)),
-		enums:  make(map[string]string, len(source.Enums)),
+		models:  make(map[string]string, len(source.Models)),
+		enums:   make(map[string]string, len(source.Enums)),
+		aliases: make(map[string]string, len(source.Aliases)),
 	}
 	seen := make(map[string]symbolOrigin, len(source.Models)+len(source.Enums))
 
@@ -87,6 +102,16 @@ func buildSymbols(source contract.Document) (symbols, error) {
 			return symbols{}, err
 		}
 		result.enums[enum.Name] = name
+	}
+	for _, alias := range source.Aliases {
+		name, err := className(alias.Name)
+		if err != nil {
+			return symbols{}, fmt.Errorf("alias %q: %w", alias.Name, err)
+		}
+		if err := reserveSymbol(seen, name, "alias", alias.Name); err != nil {
+			return symbols{}, err
+		}
+		result.aliases[alias.Name] = name
 	}
 
 	return result, nil
@@ -133,13 +158,47 @@ func buildEnums(source []contract.Enum) ([]Enum, error) {
 
 type modelDependencies struct {
 	enumNames           []string
+	aliasNames          []string
 	needsAnnotations    bool
 	needsDataclassField bool
+	needsAny            bool
+}
+
+type typeReferences struct {
+	enums            map[string]struct{}
+	aliases          map[string]struct{}
+	usesAny          bool
+	referencesModels bool
+}
+
+func (references *typeReferences) merge(other typeReferences) {
+	if references.enums == nil {
+		references.enums = make(map[string]struct{})
+	}
+	for name := range other.enums {
+		references.enums[name] = struct{}{}
+	}
+	if references.aliases == nil {
+		references.aliases = make(map[string]struct{})
+	}
+	for name := range other.aliases {
+		references.aliases[name] = struct{}{}
+	}
+	references.usesAny = references.usesAny || other.usesAny
+	references.referencesModels = references.referencesModels || other.referencesModels
+}
+
+func (references typeReferences) enumNames() []string {
+	return sortedNames(references.enums)
+}
+
+func (references typeReferences) aliasNames() []string {
+	return sortedNames(references.aliases)
 }
 
 func buildModels(source []contract.Model, symbols symbols) ([]Model, modelDependencies, error) {
 	models := make([]Model, 0, len(source))
-	usedEnums := make(map[string]struct{})
+	used := typeReferences{}
 	dependencies := modelDependencies{}
 	for _, sourceModel := range source {
 		name, found := symbols.models[sourceModel.Name]
@@ -149,7 +208,7 @@ func buildModels(source []contract.Model, symbols symbols) ([]Model, modelDepend
 		seenFields := make(map[string]string, len(sourceModel.Fields))
 		model := Model{Name: name}
 		for _, sourceField := range sourceModel.Fields {
-			field, enumNames, err := buildField(sourceField, symbols)
+			field, references, err := buildField(sourceField, symbols)
 			if err != nil {
 				return nil, modelDependencies{}, fmt.Errorf("model %q field %q: %w", sourceModel.Name, sourceField.Name, err)
 			}
@@ -158,23 +217,39 @@ func buildModels(source []contract.Model, symbols symbols) ([]Model, modelDepend
 			}
 			seenFields[field.Name] = sourceField.Name
 			dependencies.needsDataclassField = dependencies.needsDataclassField || field.Name != field.JSONName
-			dependencies.needsAnnotations = dependencies.needsAnnotations || referencesModel(sourceField.Type)
-			for _, enumName := range enumNames {
-				usedEnums[enumName] = struct{}{}
-			}
+			dependencies.needsAnnotations = dependencies.needsAnnotations || references.referencesModels
+			dependencies.needsAny = dependencies.needsAny || references.usesAny
+			used.merge(references)
 			model.Fields = append(model.Fields, field)
 		}
 		models = append(models, model)
 	}
 
-	enumNames := make([]string, 0, len(usedEnums))
-	for enumName := range usedEnums {
-		enumNames = append(enumNames, enumName)
-	}
-	sort.Strings(enumNames)
-
-	dependencies.enumNames = enumNames
+	dependencies.enumNames = used.enumNames()
+	dependencies.aliasNames = used.aliasNames()
 	return models, dependencies, nil
+}
+
+func buildAliases(source []contract.Alias, symbols symbols) ([]Alias, typeReferences, error) {
+	aliases := make([]Alias, 0, len(source))
+	dependencies := typeReferences{}
+	for _, sourceAlias := range source {
+		name, found := symbols.aliases[sourceAlias.Name]
+		if !found {
+			return nil, typeReferences{}, fmt.Errorf("alias %q has no Python symbol", sourceAlias.Name)
+		}
+		typeName, references, err := buildType(sourceAlias.Type, symbols)
+		if err != nil {
+			return nil, typeReferences{}, fmt.Errorf("alias %q: %w", sourceAlias.Name, err)
+		}
+		aliases = append(aliases, Alias{
+			Name:       name,
+			Type:       typeName,
+			QuotedType: len(references.aliases) != 0,
+		})
+		dependencies.merge(references)
+	}
+	return aliases, dependencies, nil
 }
 
 func enumModuleImports(enums []Enum) []Import {
@@ -185,7 +260,7 @@ func enumModuleImports(enums []Enum) []Import {
 }
 
 func modelModuleImports(models []Model, dependencies modelDependencies) []Import {
-	imports := make([]Import, 0, 3)
+	imports := make([]Import, 0, 5)
 	if dependencies.needsAnnotations {
 		imports = append(imports, Import{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}})
 	}
@@ -196,30 +271,61 @@ func modelModuleImports(models []Model, dependencies modelDependencies) []Import
 		}
 		imports = append(imports, Import{Group: ImportStandard, Module: "dataclasses", Names: names})
 	}
+	if dependencies.needsAny {
+		imports = append(imports, Import{Group: ImportStandard, Module: "typing", Names: []string{"Any"}})
+	}
 	if len(dependencies.enumNames) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: dependencies.enumNames})
+	}
+	if len(dependencies.aliasNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".types", Names: dependencies.aliasNames})
 	}
 	return imports
 }
 
-func buildField(source contract.Field, symbols symbols) (Field, []string, error) {
+func typeModuleImports(dependencies typeReferences) []Import {
+	names := []string{"TypeAlias"}
+	if dependencies.usesAny {
+		names = append([]string{"Any"}, names...)
+	}
+	return []Import{
+		{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}},
+		{Group: ImportStandard, Module: "typing", Names: names},
+	}
+}
+
+func initModuleImports(enums []Enum, models []Model, aliases []Alias) []Import {
+	imports := make([]Import, 0, 3)
+	if names := namesOfEnums(enums); len(names) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: names})
+	}
+	if names := namesOfModels(models); len(names) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: names})
+	}
+	if names := namesOfAliases(aliases); len(names) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".types", Names: names})
+	}
+	return imports
+}
+
+func buildField(source contract.Field, symbols symbols) (Field, typeReferences, error) {
 	name, err := fieldName(source.Name)
 	if err != nil {
-		return Field{}, nil, err
+		return Field{}, typeReferences{}, err
 	}
-	typeName, enumNames, err := buildType(source.Type, symbols)
+	typeName, references, err := buildType(source.Type, symbols)
 	if err != nil {
-		return Field{}, nil, err
+		return Field{}, typeReferences{}, err
 	}
 	if !source.Required && !source.Type.Nullable {
 		typeName += " | None"
 	}
-	return Field{Name: name, JSONName: source.Name, Type: typeName, Required: source.Required}, enumNames, nil
+	return Field{Name: name, JSONName: source.Name, Type: typeName, Required: source.Required}, references, nil
 }
 
-func buildType(source contract.Type, symbols symbols) (string, []string, error) {
+func buildType(source contract.Type, symbols symbols) (string, typeReferences, error) {
 	var typeName string
-	var enumNames []string
+	references := typeReferences{}
 	switch source.Kind {
 	case contract.KindString:
 		typeName = "str"
@@ -229,43 +335,71 @@ func buildType(source contract.Type, symbols symbols) (string, []string, error) 
 		typeName = "float"
 	case contract.KindBoolean:
 		typeName = "bool"
+	case contract.KindAny:
+		typeName = "Any"
+		references.usesAny = true
 	case contract.KindArray:
 		if source.Items == nil {
-			return "", nil, fmt.Errorf("array items are required")
+			return "", typeReferences{}, fmt.Errorf("array items are required")
 		}
-		itemType, itemEnums, err := buildType(*source.Items, symbols)
+		itemType, itemReferences, err := buildType(*source.Items, symbols)
 		if err != nil {
-			return "", nil, fmt.Errorf("array items: %w", err)
+			return "", typeReferences{}, fmt.Errorf("array items: %w", err)
 		}
 		typeName = "list[" + itemType + "]"
-		enumNames = itemEnums
+		references.merge(itemReferences)
+	case contract.KindMap:
+		if source.Items == nil {
+			return "", typeReferences{}, fmt.Errorf("map values are required")
+		}
+		valueType, valueReferences, err := buildType(*source.Items, symbols)
+		if err != nil {
+			return "", typeReferences{}, fmt.Errorf("map values: %w", err)
+		}
+		typeName = "dict[str, " + valueType + "]"
+		references.merge(valueReferences)
+	case contract.KindUnion:
+		if len(source.Values) == 0 {
+			return "", typeReferences{}, fmt.Errorf("union values are required")
+		}
+		values := make([]string, 0, len(source.Values))
+		for _, value := range source.Values {
+			valueType, valueReferences, err := buildType(value, symbols)
+			if err != nil {
+				return "", typeReferences{}, fmt.Errorf("union value: %w", err)
+			}
+			values = append(values, valueType)
+			references.merge(valueReferences)
+		}
+		typeName = strings.Join(values, " | ")
 	case contract.KindModel:
 		name, found := symbols.models[source.Name]
 		if !found {
-			return "", nil, fmt.Errorf("references unknown model %q", source.Name)
+			return "", typeReferences{}, fmt.Errorf("references unknown model %q", source.Name)
 		}
 		typeName = name
+		references.referencesModels = true
 	case contract.KindEnum:
 		name, found := symbols.enums[source.Name]
 		if !found {
-			return "", nil, fmt.Errorf("references unknown enum %q", source.Name)
+			return "", typeReferences{}, fmt.Errorf("references unknown enum %q", source.Name)
 		}
 		typeName = name
-		enumNames = []string{name}
+		references.enums = map[string]struct{}{name: {}}
+	case contract.KindAlias:
+		name, found := symbols.aliases[source.Name]
+		if !found {
+			return "", typeReferences{}, fmt.Errorf("references unknown alias %q", source.Name)
+		}
+		typeName = name
+		references.aliases = map[string]struct{}{name: {}}
 	default:
-		return "", nil, fmt.Errorf("unsupported contract type %q", source.Kind)
+		return "", typeReferences{}, fmt.Errorf("unsupported contract type %q", source.Kind)
 	}
 	if source.Nullable {
 		typeName += " | None"
 	}
-	return typeName, enumNames, nil
-}
-
-func referencesModel(source contract.Type) bool {
-	if source.Kind == contract.KindModel {
-		return true
-	}
-	return source.Kind == contract.KindArray && source.Items != nil && referencesModel(*source.Items)
+	return typeName, references, nil
 }
 
 func namesOfEnums(enums []Enum) []string {
@@ -282,4 +416,21 @@ func namesOfModels(models []Model) []string {
 		names = append(names, model.Name)
 	}
 	return names
+}
+
+func namesOfAliases(aliases []Alias) []string {
+	names := make([]string, 0, len(aliases))
+	for _, alias := range aliases {
+		names = append(names, alias.Name)
+	}
+	return names
+}
+
+func sortedNames(names map[string]struct{}) []string {
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result
 }

@@ -23,18 +23,14 @@ func Build(parsed openapi.Document) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
-	models, enums, err := buildComponentSchemas(specification.Components, classes)
-	if err != nil {
-		return Document{}, err
-	}
-	operations, err := buildOperations(specification, classes)
+	models, enums, aliases, err := buildComponentSchemas(specification.Components, classes)
 	if err != nil {
 		return Document{}, err
 	}
 
 	document.Models = models
 	document.Enums = enums
-	document.Operations = operations
+	document.Aliases = aliases
 	return document, nil
 }
 
