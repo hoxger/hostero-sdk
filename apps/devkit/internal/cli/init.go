@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -29,10 +30,16 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 
 	configPath := filepath.Join(workingDirectory, config.FileName)
-	if _, err := os.Lstat(configPath); err == nil {
-		return fmt.Errorf("%s already exists", config.FileName)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("inspect %s: %w", config.FileName, err)
+	if err := ensureNewFile(configPath, config.FileName); err != nil {
+		return err
+	}
+
+	fixturePath := filepath.Join(workingDirectory, bootstrap.OpenAPIPath)
+	if err := ensureNewFile(fixturePath, bootstrap.OpenAPIPath); err != nil {
+		return err
+	}
+	if err := ensureDirectory(filepath.Dir(fixturePath), "OpenAPI directory"); err != nil {
+		return err
 	}
 
 	reader := bufio.NewReader(cmd.InOrStdin())
@@ -44,11 +51,72 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 	target.Output = output
 
+	if err := writeFixture(fixturePath, bootstrap.OpenAPI()); err != nil {
+		return err
+	}
 	if err := config.WriteNew(configPath, config.New(target)); err != nil {
+		_ = os.Remove(fixturePath)
 		return err
 	}
 
-	fmt.Fprintf(writer, "\nCreated %s\n\nNext: hostero-devkit generate\n", config.FileName)
+	fmt.Fprintf(
+		writer,
+		"\nCreated %s\nCreated %s\n\nNext: hostero-devkit generate\n",
+		config.FileName,
+		bootstrap.OpenAPIPath,
+	)
+	return nil
+}
+
+func ensureNewFile(path string, label string) error {
+	if _, err := os.Lstat(path); err == nil {
+		return fmt.Errorf("%s already exists", label)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect %s: %w", label, err)
+	}
+	return nil
+}
+
+func writeFixture(path string, contents []byte) error {
+	directory := filepath.Dir(path)
+	if err := os.MkdirAll(directory, 0o755); err != nil {
+		return fmt.Errorf("create OpenAPI directory: %w", err)
+	}
+	if err := ensureDirectory(directory, "OpenAPI directory"); err != nil {
+		return err
+	}
+
+	handle, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return fmt.Errorf("create OpenAPI fixture: %w", err)
+	}
+	if _, err := handle.Write(contents); err != nil {
+		_ = handle.Close()
+		_ = os.Remove(path)
+		return fmt.Errorf("write OpenAPI fixture: %w", err)
+	}
+	if err := handle.Close(); err != nil {
+		_ = os.Remove(path)
+		return fmt.Errorf("close OpenAPI fixture: %w", err)
+	}
+
+	return nil
+}
+
+func ensureDirectory(path string, label string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("inspect %s: %w", label, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("%s must not be a symlink", label)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s must be a directory", label)
+	}
 	return nil
 }
 

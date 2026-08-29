@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +25,21 @@ func runValidate(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
-	if _, err := config.Load(filepath.Join(workingDirectory, config.FileName)); err != nil {
+	file, err := config.Load(filepath.Join(workingDirectory, config.FileName))
+	if err != nil {
+		return err
+	}
+	document, err := source.Resolve(workingDirectory, file.OpenAPI)
+	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Valid %s\n", config.FileName)
+	fmt.Fprintf(
+		cmd.OutOrStdout(),
+		"Valid %s (release %s, sha256 %s)\n",
+		config.FileName,
+		document.Release,
+		document.SHA256[:12],
+	)
 	return nil
 }

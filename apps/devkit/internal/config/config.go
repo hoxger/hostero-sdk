@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -19,6 +20,10 @@ const (
 type Language string
 
 const LanguagePython Language = "python"
+
+type SourceKind string
+
+const SourceKindFile SourceKind = "file"
 
 var supportedLanguages = [...]Language{LanguagePython}
 
@@ -42,8 +47,13 @@ type File struct {
 }
 
 type OpenAPI struct {
-	Source  string `yaml:"source"`
+	Source  Source `yaml:"source"`
 	Release string `yaml:"release"`
+}
+
+type Source struct {
+	Kind SourceKind `yaml:"kind"`
+	Path string     `yaml:"path"`
 }
 
 type Target struct {
@@ -62,8 +72,11 @@ func New(target Target) File {
 	return File{
 		Version: 1,
 		OpenAPI: OpenAPI{
-			Source:  "hostero",
-			Release: "latest",
+			Source: Source{
+				Kind: SourceKindFile,
+				Path: bootstrap.OpenAPIPath,
+			},
+			Release: "mvp",
 		},
 		Targets: []Target{target},
 	}
@@ -134,8 +147,11 @@ func (file File) Validate() error {
 	if file.Version != 1 {
 		return fmt.Errorf("unsupported config version %d", file.Version)
 	}
-	if file.OpenAPI.Source != "hostero" {
-		return fmt.Errorf("unsupported OpenAPI source %q", file.OpenAPI.Source)
+	if file.OpenAPI.Source.Kind != SourceKindFile {
+		return fmt.Errorf("unsupported OpenAPI source kind %q", file.OpenAPI.Source.Kind)
+	}
+	if err := ValidateProjectPath(file.OpenAPI.Source.Path); err != nil {
+		return fmt.Errorf("OpenAPI source path: %w", err)
 	}
 	if strings.TrimSpace(file.OpenAPI.Release) == "" {
 		return errors.New("OpenAPI release is required")
@@ -157,9 +173,20 @@ func (file File) Validate() error {
 }
 
 func ValidateOutput(output string) error {
-	cleaned := filepath.Clean(output)
-	if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+	if err := ValidateProjectPath(output); err != nil {
 		return errors.New("output must stay inside the current project directory")
+	}
+	return nil
+}
+
+func ValidateProjectPath(path string) error {
+	if strings.TrimSpace(path) == "" {
+		return errors.New("path is required")
+	}
+
+	cleaned := filepath.Clean(path)
+	if filepath.IsAbs(cleaned) || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
+		return errors.New("path must stay inside the current project directory")
 	}
 	return nil
 }
