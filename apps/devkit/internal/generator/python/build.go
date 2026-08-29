@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 )
@@ -542,21 +543,11 @@ func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, 
 func buildMethodDocstring(op contract.Operation, pathParams []MethodParam, queryParams []MethodParam, hasBody bool, isMultipart bool) string {
 	var sections []string
 
-	title := strings.TrimSpace(op.Summary)
-	if title != "" && !strings.HasSuffix(title, ".") {
-		title += "."
-	}
 	description := strings.TrimSpace(op.Description)
-	if description != "" && !strings.HasSuffix(description, ".") {
-		description += "."
-	}
-
-	if title != "" && description != "" && title != description {
-		sections = append(sections, fmt.Sprintf("%s\n\n%s", title, description))
-	} else if title != "" {
-		sections = append(sections, title)
-	} else if description != "" {
-		sections = append(sections, description)
+	if description != "" {
+		sections = append(sections, normalizeSentence(description))
+	} else if op.Summary != "" {
+		sections = append(sections, normalizeSentence(op.Summary))
 	}
 
 	if len(op.Permissions) > 0 {
@@ -584,6 +575,49 @@ func buildMethodDocstring(op contract.Operation, pathParams []MethodParam, query
 	}
 
 	return strings.Join(sections, "\n\n")
+}
+
+func normalizeSentence(text string) string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return ""
+	}
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return ""
+	}
+	allUpperInitials := true
+	for _, w := range words {
+		runes := []rune(w)
+		if len(runes) > 0 && !unicode.IsUpper(runes[0]) && !unicode.IsDigit(runes[0]) {
+			allUpperInitials = false
+			break
+		}
+	}
+	if allUpperInitials && len(words) > 1 {
+		for i := 1; i < len(words); i++ {
+			if !isPreservedDocWord(words[i]) {
+				words[i] = strings.ToLower(words[i])
+			}
+		}
+	}
+	result := strings.Join(words, " ")
+	if !strings.HasSuffix(result, ".") {
+		result += "."
+	}
+	return result
+}
+
+func isPreservedDocWord(w string) bool {
+	clean := strings.Trim(w, ".,!?:;\"'()[]{}")
+	if len(clean) > 1 && strings.ToUpper(clean) == clean {
+		return true
+	}
+	switch strings.ToLower(clean) {
+	case "minecraft", "axon", "mcjars", "steam", "curseforge", "modrinth", "pterodactyl":
+		return true
+	}
+	return false
 }
 
 func buildServiceType(source contract.Type, symbols symbols) (string, typeReferences, error) {

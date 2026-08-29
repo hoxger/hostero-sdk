@@ -117,9 +117,7 @@ class GameFeaturesMinecraftInstallerService:
     def list_engines(
         self, *, region_id: str, variant_id: str
     ) -> builtins.list[JsonObjectOutput]:
-        """List Minecraft Installer Engines.
-
-        List Minecraft engines live from MCJars for the selected offer variant.
+        """List Minecraft engines live from MCJars for the selected offer variant.
 
         Required permissions:
             - `catalog.read`
@@ -150,9 +148,7 @@ class GameFeaturesMinecraftInstallerService:
         search: str | None = None,
         variant_id: str,
     ) -> builtins.list[JsonObjectOutput]:
-        """List Minecraft Installer Versions.
-
-        List compatible versions for the specified engine.
+        """List compatible versions for the specified engine.
 
         Required permissions:
             - `catalog.read`
@@ -185,9 +181,7 @@ class GameFeaturesMinecraftInstallerService:
         region_id: str,
         variant_id: str,
     ) -> builtins.list[JsonObjectOutput]:
-        """List Minecraft Installer Builds.
-
-        List compatible builds for the specified engine and version.
+        """List compatible builds for the specified engine and version.
 
         Required permissions:
             - `catalog.read`
@@ -222,9 +216,7 @@ class GamesOffersService:
         self._client: Any = client
 
     def list(self, game_id: str) -> builtins.list[GameOfferListingResource]:
-        """List Active Offers.
-
-        List active offers for a game, sorted by sort_order.
+        """List active offers for a game, sorted by sort_order.
 
         Required permissions:
             - `catalog.read`
@@ -251,9 +243,7 @@ class OrderGamesService:
     def list(
         self, *, limit: int | None = None, offset: int | None = None, region_id: str
     ) -> builtins.list[GameCatalogListItemResource]:
-        """List Game Server Catalog.
-
-        List active game-server catalog entries with at least one active offer.
+        """List active game-server catalog entries with at least one active offer.
 
         Required permissions:
             - `catalog.read`
@@ -279,9 +269,7 @@ class OrderGamesService:
     def list_regions(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> builtins.list[RegionResource]:
-        """List Game Server Order Regions.
-
-        List regions selectable in the game-server order flow.
+        """List regions selectable in the game-server order flow.
 
         Required permissions:
             - `catalog.read`
@@ -302,9 +290,7 @@ class OrderGamesService:
         return [RegionResource._from_dict(item) for item in response.json()]
 
     def get(self, game_slug: str, *, region_id: str) -> GameCatalogDetailResource:
-        """Get Game Server Catalog Detail.
-
-        Return active game details and active offers for the order catalog.
+        """Return active game details and active offers for the order catalog.
 
         Required permissions:
             - `catalog.read`
@@ -346,7 +332,7 @@ class ServersActivityService:
         sort: str | None = None,
         to_date: str | None = None,
     ) -> PaginatedResponseGameServerActivityResource:
-        """List Game Server Activity.
+        """List game server activity.
 
         Required permissions:
             - `game_servers.activity.view`
@@ -377,9 +363,7 @@ class ServersAllocationsService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[CustomerGameAllocationResource]:
-        """List Server Allocations.
-
-        List network endpoints visible to the authenticated server member.
+        """List network endpoints visible to the authenticated server member.
 
         Required permissions:
             - `game_servers.allocations.view`
@@ -402,7 +386,7 @@ class ServersBackupsRestoresService:
     def get_active(
         self, server_id: str
     ) -> GameServerBackupRestoreProgressResource | None:
-        """Get Active Restore.
+        """Get active restore.
 
         Required permissions:
             - `game_servers.view`
@@ -424,7 +408,7 @@ class ServersBackupsRestoresService:
         *,
         body: GameServerBackupRestoreRequest | dict[str, Any],
     ) -> dict[str, str]:
-        """Restore Backup.
+        """Restore backup.
 
         Required permissions:
             - `game_servers.backups.restore`
@@ -446,7 +430,7 @@ class ServersBackupsService:
         self.restores = ServersBackupsRestoresService(client)
 
     def list(self, server_id: str) -> builtins.list[GameServerBackupResource]:
-        """List Backups.
+        """List backups.
 
         Required permissions:
             - `game_servers.backups.view`
@@ -465,7 +449,7 @@ class ServersBackupsService:
         *,
         body: GameServerBackupCreateRequest | None | dict[str, Any] | None = None,
     ) -> GameServerBackupResource:
-        """Create Backup.
+        """Create backup.
 
         Required permissions:
             - `game_servers.backups.create`
@@ -481,7 +465,7 @@ class ServersBackupsService:
         return GameServerBackupResource._from_dict(response.json())
 
     def get_settings(self, server_id: str) -> GameServerBackupSettingsResource:
-        """Get Backup Settings.
+        """Get backup settings.
 
         Required permissions:
             - `game_servers.backups.view`
@@ -500,7 +484,7 @@ class ServersBackupsService:
         *,
         body: GameServerBackupSettingsUpdateRequest | dict[str, Any],
     ) -> GameServerBackupSettingsResource:
-        """Update Backup Settings.
+        """Update backup settings.
 
         Required permissions:
             - `game_servers.backups.create`
@@ -516,7 +500,7 @@ class ServersBackupsService:
         return GameServerBackupSettingsResource._from_dict(response.json())
 
     def delete(self, server_id: str, backup_id: str) -> None:
-        """Delete Backup.
+        """Delete backup.
 
         Required permissions:
             - `game_servers.backups.delete`
@@ -532,9 +516,7 @@ class ServersBackupsService:
     def download(
         self, server_id: str, backup_id: str, *, component_id: str
     ) -> RedirectResponse:
-        """Download Backup.
-
-        Redirect an authorized browser to one selected backup component.
+        """Redirect an authorized browser to one selected backup component.
 
         Required permissions:
             - `game_servers.backups.download`
@@ -567,9 +549,7 @@ class ServersConsoleService:
         self._client: Any = client
 
     def get_token(self, server_id: str) -> GameServerConsoleTokenResource:
-        """Get Console Token.
-
-        Return a short-lived WebSocket token for the server's console.
+        """Return a short-lived WebSocket token for the server's console.
 
         Required permissions:
             - `game_servers.console.access`
@@ -588,7 +568,7 @@ class ServersDatabasesService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[GameServerDatabaseListItemResource]:
-        """List Databases.
+        """List databases.
 
         Required permissions:
             - `game_servers.databases.view`
@@ -607,7 +587,7 @@ class ServersDatabasesService:
     def create(
         self, server_id: str, *, body: GameServerDatabaseCreateRequest | dict[str, Any]
     ) -> GameServerDatabaseResource:
-        """Create Database.
+        """Create database.
 
         Required permissions:
             - `game_servers.databases.create`
@@ -629,7 +609,7 @@ class ServersDatabasesService:
         *,
         body: GameServerDatabaseDeleteRequest | dict[str, Any],
     ) -> None:
-        """Delete Database.
+        """Delete database.
 
         Required permissions:
             - `game_servers.databases.delete`
@@ -645,7 +625,7 @@ class ServersDatabasesService:
         return None
 
     def get(self, server_id: str, database_id: str) -> GameServerDatabaseResource:
-        """Get Database.
+        """Get database.
 
         Required permissions:
             - `game_servers.databases.credentials.view`
@@ -661,7 +641,7 @@ class ServersDatabasesService:
     def reset_password(
         self, server_id: str, database_id: str
     ) -> GameServerDatabaseResource:
-        """Reset Database Password.
+        """Reset database password.
 
         Required permissions:
             - `game_servers.databases.credentials.reset`
@@ -680,7 +660,7 @@ class ServersDomainService:
         self._client: Any = client
 
     def delete(self, server_id: str) -> None:
-        """Delete Server Domain.
+        """Delete server domain.
 
         Required permissions:
             - `game_servers.domains.update`
@@ -694,7 +674,7 @@ class ServersDomainService:
         return None
 
     def get(self, server_id: str) -> ServerDomainResource | None:
-        """Get Server Domain.
+        """Get server domain.
 
         Required permissions:
             - `game_servers.domains.view`
@@ -710,7 +690,7 @@ class ServersDomainService:
     def list_options(
         self, server_id: str
     ) -> builtins.list[ManagedDomainOptionResource]:
-        """List Server Domain Options.
+        """List server domain options.
 
         Required permissions:
             - `game_servers.domains.view`
@@ -728,7 +708,7 @@ class ServersDomainService:
     def set_subdomain(
         self, server_id: str, *, body: ServerSubdomainRequest | dict[str, Any]
     ) -> ServerDomainResource:
-        """Set Server Subdomain.
+        """Set server subdomain.
 
         Required permissions:
             - `game_servers.domains.update`
@@ -751,7 +731,7 @@ class ServersFilesCompressService:
     def create(
         self, server_id: str, *, body: FileCompressRequest | dict[str, Any]
     ) -> AxonOperationResource:
-        """Compress Files.
+        """Compress files.
 
         Required permissions:
             - `game_servers.files.write`
@@ -772,7 +752,7 @@ class ServersFilesContentsService:
         self._client: Any = client
 
     def get(self, server_id: str, *, file: str) -> FileContentsResource:
-        """Read File Contents.
+        """Read file contents.
 
         Required permissions:
             - `game_servers.files.read`
@@ -792,7 +772,7 @@ class ServersFilesContentsService:
         return FileContentsResource._from_dict(response.json())
 
     def write(self, server_id: str, *, file: str, content: bytes | str) -> None:
-        """Write File Contents.
+        """Write file contents.
 
         Required permissions:
             - `game_servers.files.write`
@@ -821,7 +801,7 @@ class ServersFilesDecompressService:
     def create(
         self, server_id: str, *, body: FileDecompressRequest | dict[str, Any]
     ) -> AxonOperationResource:
-        """Decompress File.
+        """Decompress file.
 
         Required permissions:
             - `game_servers.files.write`
@@ -837,7 +817,7 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def get_active(self, server_id: str) -> AxonOperationResource | None:
-        """Get Active Decompress Operation.
+        """Get active decompress operation.
 
         Required permissions:
             - `game_servers.files.read`
@@ -853,7 +833,7 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def get(self, server_id: str, operation_id: str) -> AxonOperationResource:
-        """Get Decompress Operation.
+        """Get decompress operation.
 
         Required permissions:
             - `game_servers.files.read`
@@ -867,7 +847,7 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def cancel(self, server_id: str, operation_id: str) -> AxonOperationResource:
-        """Cancel Decompress Operation.
+        """Cancel decompress operation.
 
         Required permissions:
             - `game_servers.files.write`
@@ -905,7 +885,7 @@ class ServersFilesSearchService:
         sort_desc: bool | None = None,
         type: str | None = None,
     ) -> FileSearchResource:
-        """Search Files.
+        """Search files.
 
         Required permissions:
             - `game_servers.files.read`
@@ -939,7 +919,7 @@ class ServersFilesSearchService:
         return FileSearchResource._from_dict(response.json())
 
     def cancel(self, server_id: str, search_id: str) -> None:
-        """Cancel File Search.
+        """Cancel file search.
 
         Required permissions:
             - `game_servers.files.read`
@@ -971,7 +951,7 @@ class ServersFilesService:
         sort: str | None = None,
         sort_desc: bool | None = None,
     ) -> FileListResource:
-        """List Files.
+        """List files.
 
         Required permissions:
             - `game_servers.files.read`
@@ -997,7 +977,7 @@ class ServersFilesService:
     def delete(
         self, server_id: str, *, body: FileDeleteRequest | dict[str, Any]
     ) -> None:
-        """Delete Files.
+        """Delete files.
 
         Required permissions:
             - `game_servers.files.delete`
@@ -1015,7 +995,7 @@ class ServersFilesService:
     def create_directories(
         self, server_id: str, *, body: FileCreateDirectoriesRequest | dict[str, Any]
     ) -> None:
-        """Create Directories.
+        """Create directories.
 
         Required permissions:
             - `game_servers.files.write`
@@ -1033,7 +1013,7 @@ class ServersFilesService:
     def create_directory(
         self, server_id: str, *, body: FileCreateDirectoryRequest | dict[str, Any]
     ) -> None:
-        """Create Directory.
+        """Create directory.
 
         Required permissions:
             - `game_servers.files.write`
@@ -1049,7 +1029,7 @@ class ServersFilesService:
         return None
 
     def get_download_url(self, server_id: str, *, file: str) -> FileUrlResource:
-        """Get Download Url.
+        """Get download url.
 
         Required permissions:
             - `game_servers.files.read`
@@ -1071,7 +1051,7 @@ class ServersFilesService:
     def rename(
         self, server_id: str, *, body: FileRenameRequest | dict[str, Any]
     ) -> None:
-        """Rename File.
+        """Rename file.
 
         Required permissions:
             - `game_servers.files.write`
@@ -1094,7 +1074,7 @@ class ServersFoldersService:
     def create(
         self, *, body: GameServerFolderCreateRequest | dict[str, Any]
     ) -> GameServerFolderResource:
-        """Create Folder.
+        """Create folder.
 
         Required permissions:
             - `game_servers.folders.manage`
@@ -1110,7 +1090,7 @@ class ServersFoldersService:
         return GameServerFolderResource._from_dict(response.json())
 
     def get_tree(self) -> GameServerSidebarTreeResource:
-        """Get Folder Tree.
+        """Get folder tree.
 
         Required permissions:
             - `game_servers.folders.view`
@@ -1124,7 +1104,7 @@ class ServersFoldersService:
         return GameServerSidebarTreeResource._from_dict(response.json())
 
     def delete(self, folder_id: str) -> None:
-        """Delete Folder.
+        """Delete folder.
 
         Required permissions:
             - `game_servers.folders.manage`
@@ -1140,7 +1120,7 @@ class ServersFoldersService:
     def update(
         self, folder_id: str, *, body: GameServerFolderUpdateRequest | dict[str, Any]
     ) -> GameServerFolderResource:
-        """Update Folder.
+        """Update folder.
 
         Required permissions:
             - `game_servers.folders.manage`
@@ -1156,7 +1136,7 @@ class ServersFoldersService:
         return GameServerFolderResource._from_dict(response.json())
 
     def remove_server(self, folder_id: str, server_id: str) -> None:
-        """Remove Server From Folder.
+        """Remove server from folder.
 
         Required permissions:
             - `game_servers.folders.manage`
@@ -1170,7 +1150,7 @@ class ServersFoldersService:
         return None
 
     def add_server(self, folder_id: str, server_id: str) -> None:
-        """Assign Server To Folder.
+        """Assign server to folder.
 
         Required permissions:
             - `game_servers.folders.manage`
@@ -1189,7 +1169,7 @@ class ServersInvitesService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[ServerInviteResource]:
-        """List Server Invites.
+        """List server invites.
 
         Required permissions:
             - `game_servers.subusers.view`
@@ -1205,7 +1185,7 @@ class ServersInvitesService:
     def create(
         self, server_id: str, *, body: GameServerInviteCreateRequest | dict[str, Any]
     ) -> ServerInviteResource:
-        """Create Server Invite.
+        """Create server invite.
 
         Required permissions:
             - `game_servers.subusers.create`
@@ -1221,7 +1201,7 @@ class ServersInvitesService:
         return ServerInviteResource._from_dict(response.json())
 
     def delete(self, server_id: str, invite_id: str) -> None:
-        """Revoke Server Invite.
+        """Revoke server invite.
 
         Required permissions:
             - `game_servers.subusers.delete`
@@ -1240,9 +1220,7 @@ class ServersMinecraftInstallerService:
         self._client: Any = client
 
     def list_engines(self, server_id: str) -> builtins.list[JsonObjectOutput]:
-        """List Server Minecraft Installer Engines.
-
-        List Minecraft engines available for this server's cell images.
+        """List Minecraft engines available for this server's cell images.
 
         Required permissions:
             - `game_servers.power.reinstall`
@@ -1265,9 +1243,7 @@ class ServersMinecraftInstallerService:
         include_archived: bool | None = None,
         search: str | None = None,
     ) -> builtins.list[JsonObjectOutput]:
-        """List Server Minecraft Installer Versions.
-
-        List Minecraft versions compatible with this server's cell images.
+        """List Minecraft versions compatible with this server's cell images.
 
         Required permissions:
             - `game_servers.power.reinstall`
@@ -1297,9 +1273,7 @@ class ServersMinecraftInstallerService:
         *,
         include_archived: bool | None = None,
     ) -> builtins.list[JsonObjectOutput]:
-        """List Server Minecraft Installer Builds.
-
-        List Minecraft builds compatible with this server's cell images.
+        """List Minecraft builds compatible with this server's cell images.
 
         Required permissions:
             - `game_servers.power.reinstall`
@@ -1326,7 +1300,7 @@ class ServersMinecraftInstallerService:
         *,
         body: MinecraftInstallerReinstallRequest | dict[str, Any],
     ) -> None:
-        """Reinstall Minecraft Server.
+        """Reinstall Minecraft server.
 
         Required permissions:
             - `game_servers.power.reinstall`
@@ -1351,7 +1325,7 @@ class ServersOperationsService:
     def list(
         self, server_id: str, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseAxonOperationResource:
-        """List Operations.
+        """List operations.
 
         Required permissions:
             - `game_servers.operations.view`
@@ -1372,7 +1346,7 @@ class ServersOperationsService:
         return PaginatedResponseAxonOperationResource._from_dict(response.json())
 
     def get(self, server_id: str, operation_id: str) -> AxonOperationResource:
-        """Get Operation.
+        """Get operation.
 
         Required permissions:
             - `game_servers.operations.view`
@@ -1386,7 +1360,7 @@ class ServersOperationsService:
         return AxonOperationResource._from_dict(response.json())
 
     def cancel(self, server_id: str, operation_id: str) -> AxonOperationResource:
-        """Cancel Operation.
+        """Cancel operation.
 
         Required permissions:
             - `game_servers.operations.cancel`
@@ -1405,9 +1379,7 @@ class ServersPowerService:
         self._client: Any = client
 
     def kill(self, server_id: str) -> None:
-        """Kill Game Server.
-
-        Force-kill the game server container.
+        """Force-kill the game server container.
 
         Required permissions:
             - `game_servers.power.kill`
@@ -1421,9 +1393,7 @@ class ServersPowerService:
         return None
 
     def reinstall(self, server_id: str) -> None:
-        """Reinstall Game Server.
-
-        Run the game server installer again without wiping server data.
+        """Run the game server installer again without wiping server data.
 
         Required permissions:
             - `game_servers.power.reinstall`
@@ -1437,9 +1407,7 @@ class ServersPowerService:
         return None
 
     def restart(self, server_id: str) -> None:
-        """Restart Game Server.
-
-        Restart the game server container.
+        """Restart the game server container.
 
         Required permissions:
             - `game_servers.power.restart`
@@ -1453,9 +1421,7 @@ class ServersPowerService:
         return None
 
     def start(self, server_id: str) -> None:
-        """Start Game Server.
-
-        Start the game server container.
+        """Start the game server container.
 
         Required permissions:
             - `game_servers.power.start`
@@ -1469,9 +1435,7 @@ class ServersPowerService:
         return None
 
     def stop(self, server_id: str) -> None:
-        """Stop Game Server.
-
-        Stop the game server container.
+        """Stop the game server container.
 
         Required permissions:
             - `game_servers.power.stop`
@@ -1497,7 +1461,7 @@ class ServersSchedulesRunsService:
         limit: int | None = None,
         offset: int | None = None,
     ) -> PaginatedResponseGameServerScheduleRunResource:
-        """List Schedule Runs.
+        """List schedule runs.
 
         Required permissions:
             - `game_servers.schedules.view`
@@ -1528,7 +1492,7 @@ class ServersSchedulesService:
     def list(
         self, server_id: str, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseGameServerScheduleResource:
-        """List Schedules.
+        """List schedules.
 
         Required permissions:
             - `game_servers.schedules.view`
@@ -1551,7 +1515,7 @@ class ServersSchedulesService:
     def create(
         self, server_id: str, *, body: GameServerScheduleCreateRequest | dict[str, Any]
     ) -> GameServerScheduleResource:
-        """Create Schedule.
+        """Create schedule.
 
         Required permissions:
             - `game_servers.schedules.create`
@@ -1567,7 +1531,7 @@ class ServersSchedulesService:
         return GameServerScheduleResource._from_dict(response.json())
 
     def delete(self, server_id: str, schedule_id: str) -> None:
-        """Delete Schedule.
+        """Delete schedule.
 
         Required permissions:
             - `game_servers.schedules.delete`
@@ -1581,7 +1545,7 @@ class ServersSchedulesService:
         return None
 
     def get(self, server_id: str, schedule_id: str) -> GameServerScheduleResource:
-        """Get Schedule.
+        """Get schedule.
 
         Required permissions:
             - `game_servers.schedules.view`
@@ -1601,7 +1565,7 @@ class ServersSchedulesService:
         *,
         body: GameServerScheduleUpdateRequest | dict[str, Any],
     ) -> GameServerScheduleResource:
-        """Update Schedule.
+        """Update schedule.
 
         Required permissions:
             - `game_servers.schedules.update`
@@ -1617,7 +1581,7 @@ class ServersSchedulesService:
         return GameServerScheduleResource._from_dict(response.json())
 
     def run(self, server_id: str, schedule_id: str) -> GameServerScheduleRunResource:
-        """Run Schedule.
+        """Run schedule.
 
         Required permissions:
             - `game_servers.schedules.run`
@@ -1636,7 +1600,7 @@ class ServersSftpService:
         self._client: Any = client
 
     def get_credentials(self, server_id: str) -> GameServerSftpCredentialsResource:
-        """Get Sftp Credentials.
+        """Get sftp credentials.
 
         Required permissions:
             - `game_servers.sftp.access`
@@ -1650,7 +1614,7 @@ class ServersSftpService:
         return GameServerSftpCredentialsResource._from_dict(response.json())
 
     def rotate_credentials(self, server_id: str) -> GameServerSftpCredentialsResource:
-        """Rotate Sftp Credentials.
+        """Rotate sftp credentials.
 
         Required permissions:
             - `game_servers.sftp.access`
@@ -1671,9 +1635,7 @@ class ServersStartupService:
         self._client: Any = client
 
     def get(self, server_id: str) -> GameServerStartupSettingsResource:
-        """Get Startup Settings.
-
-        Return startup settings and editable options for a server.
+        """Return startup settings and editable options for a server.
 
         Required permissions:
             - `game_servers.startup.view`
@@ -1689,9 +1651,7 @@ class ServersStartupService:
     def update(
         self, server_id: str, *, body: GameServerStartupUpdateRequest | dict[str, Any]
     ) -> GameServerStartupSettingsResource:
-        """Update Startup Settings.
-
-        Update user-controlled startup parameters.
+        """Update user-controlled startup parameters.
 
         Required permissions:
             - `game_servers.startup.update`
@@ -1712,7 +1672,7 @@ class ServersSubusersService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[GameServerSubuserResource]:
-        """List Subusers.
+        """List subusers.
 
         Required permissions:
             - `game_servers.subusers.view`
@@ -1726,7 +1686,7 @@ class ServersSubusersService:
         return [GameServerSubuserResource._from_dict(item) for item in response.json()]
 
     def delete(self, server_id: str, access_id: str) -> None:
-        """Delete Subuser.
+        """Delete subuser.
 
         Required permissions:
             - `game_servers.subusers.delete`
@@ -1746,7 +1706,7 @@ class ServersSubusersService:
         *,
         body: GameServerSubuserUpdateRequest | dict[str, Any],
     ) -> GameServerSubuserResource:
-        """Update Subuser.
+        """Update subuser.
 
         Required permissions:
             - `game_servers.subusers.update`
@@ -1789,9 +1749,7 @@ class ServersService:
         offset: int | None = None,
         search: str | None = None,
     ) -> PaginatedResponseGameServerListItemResource:
-        """List Game Servers.
-
-        List game servers owned by or shared with the authenticated user.
+        """List game servers owned by or shared with the authenticated user.
 
         Required permissions:
             - `game_servers.view`
@@ -1813,9 +1771,7 @@ class ServersService:
         return PaginatedResponseGameServerListItemResource._from_dict(response.json())
 
     def get_overview(self) -> ServersOverviewResource:
-        """Get Servers Overview.
-
-        Return status counts and a compact preview of owned and shared servers.
+        """Return status counts and a compact preview of owned and shared servers.
 
         Required permissions:
             - `game_servers.view`
@@ -1829,9 +1785,7 @@ class ServersService:
         return ServersOverviewResource._from_dict(response.json())
 
     def get_usage(self) -> dict[str, GameServerUsageResource | None]:
-        """List Game Servers Usage.
-
-        Live Axon stats for accessible servers with usage permission, keyed by server UUID.
+        """Live Axon stats for accessible servers with usage permission, keyed by server UUID.
 
         Required permissions:
             - `game_servers.usage.view`
@@ -1845,9 +1799,7 @@ class ServersService:
         return response.json()
 
     def get(self, server_id: str) -> GameServerDetailResource:
-        """Get Game Server.
-
-        Return a single game server accessible to the authenticated user.
+        """Return a single game server accessible to the authenticated user.
 
         Required permissions:
             - `game_servers.view`
@@ -1863,9 +1815,7 @@ class ServersService:
     def update(
         self, server_id: str, *, body: GameServerUpdateRequest | dict[str, Any]
     ) -> GameServerDetailResource:
-        """Update Game Server.
-
-        Update owner-controlled server metadata.
+        """Update owner-controlled server metadata.
 
         Required permissions:
             - `game_servers.settings.update`
@@ -1888,9 +1838,7 @@ class TicketsMessagesAttachmentsService:
     def create(
         self, ticket_id: str, message_id: str, *, file: Upload | Any
     ) -> TicketAttachmentResource:
-        """Upload Attachment.
-
-        Upload a file attachment to a message.
+        """Upload a file attachment to a message.
 
         Required permissions:
             - `tickets.attachments.create`
@@ -1906,9 +1854,7 @@ class TicketsMessagesAttachmentsService:
         return TicketAttachmentResource._from_dict(response.json())
 
     def delete(self, ticket_id: str, message_id: str, attachment_id: str) -> None:
-        """Delete Attachment.
-
-        Delete an attachment from a ticket message.
+        """Delete an attachment from a ticket message.
 
         Required permissions:
             - `tickets.attachments.delete`
@@ -1924,9 +1870,7 @@ class TicketsMessagesAttachmentsService:
     def get_url(
         self, ticket_id: str, message_id: str, attachment_id: str
     ) -> dict[str, str]:
-        """Get Attachment Url.
-
-        Return a presigned download URL (valid 1 hour).
+        """Return a presigned download URL (valid 1 hour).
 
         Required permissions:
             - `tickets.attachments.read`
@@ -1948,9 +1892,7 @@ class TicketsMessagesService:
     def list(
         self, ticket_id: str, *, before: str | None = None, limit: int | None = None
     ) -> builtins.list[TicketMessageResource]:
-        """List Messages.
-
-        Paginate messages (cursor-based, newest-last).
+        """Paginate messages (cursor-based, newest-last).
 
         Required permissions:
             - `tickets.read`
@@ -1973,9 +1915,7 @@ class TicketsMessagesService:
     def create(
         self, ticket_id: str, *, body: TicketMessageCreateRequest | dict[str, Any]
     ) -> TicketMessageResource:
-        """Send Message.
-
-        Send a message to the ticket.
+        """Send a message to the ticket.
 
         Required permissions:
             - `tickets.messages.create`
@@ -1999,9 +1939,7 @@ class TicketsService:
     def list(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseTicketResource:
-        """List Tickets.
-
-        List current user's own tickets.
+        """List current user's own tickets.
 
         Required permissions:
             - `tickets.read`
@@ -2022,9 +1960,7 @@ class TicketsService:
         return PaginatedResponseTicketResource._from_dict(response.json())
 
     def create(self, *, body: TicketCreateRequest | dict[str, Any]) -> TicketResource:
-        """Create Ticket.
-
-        Open a new support ticket. Limited to 5 open tickets per user at a time.
+        """Open a new support ticket. Limited to 5 open tickets per user at a time.
 
         Required permissions:
             - `tickets.create`
@@ -2040,9 +1976,7 @@ class TicketsService:
         return TicketResource._from_dict(response.json())
 
     def get_overview(self) -> TicketsOverviewResource:
-        """Get Tickets Overview.
-
-        Return current user's total number of non-terminal tickets.
+        """Return current user's total number of non-terminal tickets.
 
         Required permissions:
             - `tickets.read`
@@ -2056,9 +1990,7 @@ class TicketsService:
         return TicketsOverviewResource._from_dict(response.json())
 
     def get(self, ticket_id: str) -> TicketDetailResource:
-        """Get Ticket.
-
-        Get ticket details and participants.
+        """Get ticket details and participants.
 
         Required permissions:
             - `tickets.read`
@@ -2074,9 +2006,7 @@ class TicketsService:
     def update_status(
         self, ticket_id: str, *, body: TicketStatusUpdateRequest | dict[str, Any]
     ) -> TicketResource:
-        """Update Status.
-
-        Update ticket status.
+        """Update ticket status.
 
         Required permissions:
             - `tickets.status.update`
