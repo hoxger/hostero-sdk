@@ -65,17 +65,23 @@ const (
 	ParameterCookie ParameterLocation = "cookie"
 )
 
+type ClientMetadata struct {
+	Group  []string
+	Method string
+}
+
 type Operation struct {
-	ID          string
-	Method      string
-	Path        string
-	Tags        []string
-	Permissions []string
-	TargetKinds []string
-	Parameters  []Parameter
-	RequestBody *RequestBody
-	Success     Response
-	Errors      []Response
+	ID             string
+	Method         string
+	Path           string
+	Tags           []string
+	Permissions    []string
+	TargetKinds    []string
+	ClientMetadata ClientMetadata
+	Parameters     []Parameter
+	RequestBody    *RequestBody
+	Success        Response
+	Errors         []Response
 }
 
 type Parameter struct {

@@ -12,6 +12,7 @@ import (
 const (
 	requiredPermissionsExtension = "x-hostero-required-permissions"
 	targetKindsExtension         = "x-hostero-target-kind"
+	clientMetadataExtension     = "x-hostero-client"
 )
 
 func buildOperations(paths *openapi3.Paths, classes map[string]Kind) ([]Operation, error) {
@@ -21,6 +22,7 @@ func buildOperations(paths *openapi3.Paths, classes map[string]Kind) ([]Operatio
 
 	operations := make([]Operation, 0)
 	seenIDs := make(map[string]string)
+	seenClientTargets := make(map[string]string)
 	for _, path := range sortedPathNames(paths) {
 		pathItem := paths.Value(path)
 		if pathItem == nil || pathItem.Ref != "" {
@@ -38,6 +40,13 @@ func buildOperations(paths *openapi3.Paths, classes map[string]Kind) ([]Operatio
 				return nil, fmt.Errorf("operation %q duplicates %s", operation.ID, existing)
 			}
 			seenIDs[operation.ID] = fmt.Sprintf("%s %s", operation.Method, operation.Path)
+
+			clientKey := fmt.Sprintf("%s:%s", strings.Join(operation.ClientMetadata.Group, "."), operation.ClientMetadata.Method)
+			if existing, found := seenClientTargets[clientKey]; found {
+				return nil, fmt.Errorf("client operation %q declared on %s duplicates %s", clientKey, operation.ID, existing)
+			}
+			seenClientTargets[clientKey] = operation.ID
+
 			operations = append(operations, operation)
 		}
 	}
@@ -66,6 +75,10 @@ func buildOperation(path string, method string, pathParameters openapi3.Paramete
 	if err != nil {
 		return Operation{}, fmt.Errorf("operation %s %s: %w", method, path, err)
 	}
+	clientMetadata, err := parseClientMetadata(source)
+	if err != nil {
+		return Operation{}, fmt.Errorf("operation %s %s: %w", method, path, err)
+	}
 	parameters, err := buildParameters(pathParameters, source.Parameters, classes)
 	if err != nil {
 		return Operation{}, fmt.Errorf("operation %s %s parameters: %w", method, path, err)
@@ -79,16 +92,17 @@ func buildOperation(path string, method string, pathParameters openapi3.Paramete
 		return Operation{}, fmt.Errorf("operation %s %s responses: %w", method, path, err)
 	}
 	return Operation{
-		ID:          id,
-		Method:      method,
-		Path:        path,
-		Tags:        append([]string(nil), source.Tags...),
-		Permissions: permissions,
-		TargetKinds: targetKinds,
-		Parameters:  parameters,
-		RequestBody: requestBody,
-		Success:     success,
-		Errors:      errors,
+		ID:             id,
+		Method:         method,
+		Path:           path,
+		Tags:           append([]string(nil), source.Tags...),
+		Permissions:    permissions,
+		TargetKinds:    targetKinds,
+		ClientMetadata: clientMetadata,
+		Parameters:     parameters,
+		RequestBody:    requestBody,
+		Success:        success,
+		Errors:         errors,
 	}, nil
 }
 
@@ -296,3 +310,45 @@ func sortedKeys(values map[string]*openapi3.ParameterRef) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+func parseClientMetadata(source *openapi3.Operation) (ClientMetadata, error) {
+	raw, found := source.Extensions[clientMetadataExtension]
+	if !found {
+		return ClientMetadata{}, fmt.Errorf("%s is required", clientMetadataExtension)
+	}
+	mapping, ok := raw.(map[string]any)
+	if !ok {
+		return ClientMetadata{}, fmt.Errorf("%s must be an object", clientMetadataExtension)
+	}
+	rawGroup, hasGroup := mapping["group"]
+	if !hasGroup {
+		return ClientMetadata{}, fmt.Errorf("%s missing 'group'", clientMetadataExtension)
+	}
+	rawGroupList, ok := rawGroup.([]any)
+	if !ok || len(rawGroupList) == 0 {
+		return ClientMetadata{}, fmt.Errorf("%s 'group' must be a non-empty list of strings", clientMetadataExtension)
+	}
+	group := make([]string, 0, len(rawGroupList))
+	for _, item := range rawGroupList {
+		str, ok := item.(string)
+		if !ok || strings.TrimSpace(str) == "" {
+			return ClientMetadata{}, fmt.Errorf("%s 'group' item must be a non-empty string", clientMetadataExtension)
+		}
+		group = append(group, str)
+	}
+
+	rawMethod, hasMethod := mapping["method"]
+	if !hasMethod {
+		return ClientMetadata{}, fmt.Errorf("%s missing 'method'", clientMetadataExtension)
+	}
+	method, ok := rawMethod.(string)
+	if !ok || strings.TrimSpace(method) == "" {
+		return ClientMetadata{}, fmt.Errorf("%s 'method' must be a non-empty string", clientMetadataExtension)
+	}
+
+	return ClientMetadata{
+		Group:  group,
+		Method: method,
+	}, nil
+}
+

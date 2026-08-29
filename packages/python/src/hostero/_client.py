@@ -10,6 +10,7 @@ import httpx
 
 from ._auth import _ApiKeyAuth
 from ._errors import ConfigurationError, error_from_response
+from ._generated import _GeneratedServicesMixin
 
 if TYPE_CHECKING:
     from ._generated.operations import Operation
@@ -18,7 +19,7 @@ DEFAULT_BASE_URL = "https://api.hostero.gg/v1"
 _API_KEY_ENVIRONMENT_VARIABLE = "HOSTERO_API_KEY"
 
 
-class Hostero:
+class Hostero(_GeneratedServicesMixin):
     """A synchronous client for Hostero's API-key automation API."""
 
     def __init__(
@@ -38,6 +39,7 @@ class Hostero:
             timeout=timeout,
             transport=transport,
         )
+        super().__init__(self)
 
     @classmethod
     def from_env(

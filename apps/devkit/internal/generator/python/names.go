@@ -50,6 +50,44 @@ func fieldName(value string) (string, error) {
 	return name, nil
 }
 
+func methodName(value string) (string, error) {
+	words := identifierWords(value)
+	if len(words) == 0 {
+		return "", fmt.Errorf("cannot derive a Python method name from %q", value)
+	}
+
+	name := strings.Join(words, "_")
+	if first := []rune(name)[0]; unicode.IsDigit(first) {
+		name = "_" + name
+	}
+	if _, isKeyword := keywords[name]; isKeyword {
+		name += "_"
+	}
+	return name, nil
+}
+
+func serviceClassName(group []string) (string, error) {
+	if len(group) == 0 {
+		return "ServicesMixin", nil
+	}
+	var builder strings.Builder
+	for _, segment := range group {
+		words := identifierWords(segment)
+		if len(words) == 0 {
+			return "", fmt.Errorf("cannot derive service class name from segment %q", segment)
+		}
+		for _, word := range words {
+			builder.WriteString(titleWord(word))
+		}
+	}
+	builder.WriteString("Service")
+	return builder.String(), nil
+}
+
+func groupFieldName(segment string) (string, error) {
+	return fieldName(segment)
+}
+
 func enumMemberName(value string) (string, error) {
 	words := identifierWords(value)
 	if len(words) == 0 {

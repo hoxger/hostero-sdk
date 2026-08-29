@@ -19,6 +19,7 @@ const (
 	ModuleModels     ModuleKind = "models"
 	ModuleOperations ModuleKind = "operations"
 	ModuleTypes      ModuleKind = "types"
+	ModuleServices   ModuleKind = "services"
 )
 
 type Module struct {
@@ -29,6 +30,7 @@ type Module struct {
 	Models     []Model
 	Operations []Operation
 	Aliases    []Alias
+	Services   []ServiceClass
 	Exports    []string
 }
 
@@ -61,6 +63,31 @@ type Model struct {
 	Fields []Field
 }
 
+type FieldCodecKind string
+
+const (
+	CodecPrimitive FieldCodecKind = "primitive"
+	CodecEnum      FieldCodecKind = "enum"
+	CodecModel     FieldCodecKind = "model"
+	CodecAlias     FieldCodecKind = "alias"
+	CodecListModel FieldCodecKind = "list_model"
+	CodecListEnum  FieldCodecKind = "list_enum"
+	CodecListPrim  FieldCodecKind = "list_prim"
+	CodecMapModel  FieldCodecKind = "map_model"
+	CodecMapPrim   FieldCodecKind = "map_prim"
+	CodecMapEnum   FieldCodecKind = "map_enum"
+)
+
+type Field struct {
+	Name       string
+	JSONName   string
+	Type       string
+	Required   bool
+	Nullable   bool
+	CodecKind  FieldCodecKind
+	TargetType string
+}
+
 type Operation struct {
 	ID          string
 	Method      string
@@ -75,9 +102,41 @@ type Alias struct {
 	QuotedType bool
 }
 
-type Field struct {
-	Name     string
-	JSONName string
-	Type     string
-	Required bool
+type ServiceClass struct {
+	Name        string
+	SubServices []ServiceProperty
+	Methods     []ServiceMethod
 }
+
+type ServiceProperty struct {
+	Name      string
+	ClassName string
+}
+
+type ServiceMethod struct {
+	Name            string
+	Docstring       string
+	OperationID     string
+	HTTPMethod      string
+	PathExpr        string
+	PathParams      []MethodParam
+	QueryParams     []MethodParam
+	HasBody         bool
+	BodyParam       *MethodParam
+	IsRawBody       bool
+	IsMultipart     bool
+	SuccessStatus   int
+	ReturnType      string
+	ReturnModelName string
+	IsReturnList    bool
+	IsReturnModel   bool
+}
+
+type MethodParam struct {
+	Name         string
+	JSONName     string
+	Type         string
+	DefaultValue string
+	Required     bool
+}
+

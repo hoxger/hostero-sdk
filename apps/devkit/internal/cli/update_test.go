@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,17 +10,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/lock"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 )
 
 func TestUpdateFetchesAndPinsOpenAPIContract(t *testing.T) {
+	rawOpenAPI := readHosteroOpenAPI(t)
+	var rawMeta struct {
+		Info struct {
+			Version string `json:"version"`
+		} `json:"info"`
+	}
+	if err := json.Unmarshal(rawOpenAPI, &rawMeta); err != nil {
+		t.Fatalf("unmarshal raw openapi: %v", err)
+	}
 	updatedSpecification := bytes.Replace(
-		bootstrap.OpenAPI(),
-		[]byte(`"version": "mvp"`),
+		rawOpenAPI,
+		[]byte(`"version": "`+rawMeta.Info.Version+`"`),
 		[]byte(`"version": "vtest.1"`),
+		1,
+	)
+	updatedSpecification = bytes.Replace(
+		updatedSpecification,
+		[]byte(`"version":"`+rawMeta.Info.Version+`"`),
+		[]byte(`"version":"vtest.1"`),
 		1,
 	)
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -37,7 +52,7 @@ func TestUpdateFetchesAndPinsOpenAPIContract(t *testing.T) {
 	if err := config.WriteNew(filepath.Join(workingDirectory, config.FileName), configuration); err != nil {
 		t.Fatalf("write configuration: %v", err)
 	}
-	bootstrapDocument := source.Document{Bytes: bootstrap.OpenAPI()}
+	bootstrapDocument := source.Document{Bytes: rawOpenAPI}
 	if err := source.WriteSnapshot(workingDirectory, configuration.OpenAPI, bootstrapDocument); err != nil {
 		t.Fatalf("write bootstrap snapshot: %v", err)
 	}
@@ -89,8 +104,9 @@ func TestUpdateFetchesAndPinsOpenAPIContract(t *testing.T) {
 }
 
 func TestUpdateRejectsContractWithoutRequiredPermissions(t *testing.T) {
+	rawOpenAPI := readHosteroOpenAPI(t)
 	updatedSpecification := bytes.Replace(
-		bootstrap.OpenAPI(),
+		rawOpenAPI,
 		[]byte(`"x-hostero-required-permissions"`),
 		[]byte(`"x-hostero-required-permissions-removed"`),
 		1,
@@ -107,7 +123,7 @@ func TestUpdateRejectsContractWithoutRequiredPermissions(t *testing.T) {
 	if err := config.WriteNew(filepath.Join(workingDirectory, config.FileName), configuration); err != nil {
 		t.Fatalf("write configuration: %v", err)
 	}
-	bootstrapDocument := source.Document{Bytes: bootstrap.OpenAPI()}
+	bootstrapDocument := source.Document{Bytes: rawOpenAPI}
 	if err := source.WriteSnapshot(workingDirectory, configuration.OpenAPI, bootstrapDocument); err != nil {
 		t.Fatalf("write bootstrap snapshot: %v", err)
 	}
@@ -146,4 +162,13 @@ func TestUpdateRejectsContractWithoutRequiredPermissions(t *testing.T) {
 	if after.SHA256 != pinned.SHA256 {
 		t.Fatalf("snapshot changed after failed update: %s != %s", after.SHA256, pinned.SHA256)
 	}
+}
+
+func readHosteroOpenAPI(t *testing.T) []byte {
+	t.Helper()
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "openapi", "hostero.openapi.json"))
+	if err != nil {
+		t.Fatalf("read hostero.openapi.json: %v", err)
+	}
+	return contents
 }

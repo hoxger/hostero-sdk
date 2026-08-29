@@ -7,63 +7,13 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 )
 
-func TestBuildFixture(t *testing.T) {
-	parsed := parseFixture(t)
-
-	document, err := contract.Build(parsed)
-	if err != nil {
-		t.Fatalf("build fixture contract: %v", err)
-	}
-
-	if document.Title != "Hostero API" || document.Version != "mvp" || document.ServerURL != "https://api.hostero.gg/v1" {
-		t.Fatalf("unexpected document identity: %#v", document)
-	}
-	if len(document.Models) != 6 || len(document.Enums) != 1 || len(document.Aliases) != 0 || len(document.Operations) != 3 {
-		t.Fatalf("unexpected contract sizes: %#v", document)
-	}
-
-	status := document.Enums[0]
-	if status.Name != "GameServerStatus" || strings.Join(status.Values, ",") != "error,install_failed,installed,installing,restoring,running,starting,stopped,stopping,suspended" {
-		t.Fatalf("unexpected status enum: %#v", status)
-	}
-
-	server := findModel(t, document.Models, "GameServerListItem")
-	if field := findField(t, server, "expires_at"); field.Type.Kind != contract.KindString || !field.Type.Nullable || field.Type.Format != "date-time" {
-		t.Fatalf("unexpected expires_at field: %#v", field)
-	}
-	if field := findField(t, server, "primary_allocation"); field.Type.Kind != contract.KindModel || field.Type.Name != "PrimaryAllocation" || !field.Type.Nullable {
-		t.Fatalf("unexpected primary_allocation field: %#v", field)
-	}
-	list := findOperation(t, document.Operations, "listGameServers")
-	if list.Method != "GET" || list.Path != "/servers" || strings.Join(list.Permissions, ",") != "game_servers.view" || strings.Join(list.TargetKinds, ",") != "game_server" {
-		t.Fatalf("unexpected list operation: %#v", list)
-	}
-	if len(list.Parameters) != 2 || list.Parameters[0].Location != contract.ParameterQuery || list.Parameters[0].Name != "limit" || list.Success.Status != 200 || list.Success.Type == nil || list.Success.Type.Name != "PaginatedGameServers" {
-		t.Fatalf("unexpected list operation shape: %#v", list)
-	}
-	restart := findOperation(t, document.Operations, "restartGameServer")
-	if restart.Method != "POST" || restart.Success.Status != 204 || restart.Success.Type != nil || len(restart.Parameters) != 1 || restart.Parameters[0].Location != contract.ParameterPath {
-		t.Fatalf("unexpected restart operation: %#v", restart)
-	}
-
-}
-
 func TestBuildPinnedPublicSnapshotOperations(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "openapi", "hostero.openapi.json"))
-	if err != nil {
-		t.Fatalf("read pinned public OpenAPI: %v", err)
-	}
-	parsed, err := openapi.Parse(source.Document{Bytes: contents})
-	if err != nil {
-		t.Fatalf("parse pinned public OpenAPI: %v", err)
-	}
-	document, err := contract.Build(parsed)
+	document, err := contract.Build(parseFixture(t))
 	if err != nil {
 		t.Fatalf("build pinned public contract: %v", err)
 	}
@@ -75,6 +25,15 @@ func TestBuildPinnedPublicSnapshotOperations(t *testing.T) {
 	if attachment.RequestBody == nil || attachment.RequestBody.ContentType != "multipart/form-data" || attachment.RequestBody.Type.Kind != contract.KindModel || attachment.Success.Status != 201 || attachment.Success.Type == nil || attachment.Success.Type.Name != "TicketAttachmentResource" {
 		t.Fatalf("unexpected attachment operation: %#v", attachment)
 	}
+	if attachment.ClientMetadata.Method != "create" || strings.Join(attachment.ClientMetadata.Group, ".") != "tickets.messages.attachments" {
+		t.Fatalf("unexpected attachment client metadata: %#v", attachment.ClientMetadata)
+	}
+
+	restart := findOperation(t, document.Operations, "servers_power_restart_create")
+	if restart.ClientMetadata.Method != "restart" || strings.Join(restart.ClientMetadata.Group, ".") != "servers.power" {
+		t.Fatalf("unexpected restart client metadata: %#v", restart.ClientMetadata)
+	}
+
 	download := findOperation(t, document.Operations, "servers_backups_download_list")
 	if download.Success.Status != 302 || download.Success.Type != nil || strings.Join(download.Permissions, ",") != "game_servers.backups.download" {
 		t.Fatalf("unexpected backup download operation: %#v", download)
@@ -93,7 +52,7 @@ func TestBuildRejectsUnsupportedContracts(t *testing.T) {
 		{
 			name: "anonymous object field",
 			mutate: func(parsed *openapi.Document) {
-				model := parsed.Specification.Components.Schemas["GameServerListItem"].Value
+				model := parsed.Specification.Components.Schemas["TicketCreateRequest"].Value
 				model.Properties["name"] = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
 			},
 			message: "anonymous object schemas are not supported",
@@ -174,7 +133,11 @@ func TestBuildSupportsJSONAliasesAndClosedModels(t *testing.T) {
 
 func parseFixture(t *testing.T) openapi.Document {
 	t.Helper()
-	parsed, err := openapi.Parse(source.Document{Bytes: bootstrap.OpenAPI()})
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "openapi", "hostero.openapi.json"))
+	if err != nil {
+		t.Fatalf("read hostero.openapi.json: %v", err)
+	}
+	parsed, err := openapi.Parse(source.Document{Bytes: contents})
 	if err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}

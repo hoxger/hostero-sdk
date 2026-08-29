@@ -3,6 +3,7 @@ package python
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
@@ -27,23 +28,33 @@ func Build(source contract.Document) (Document, error) {
 		return Document{}, err
 	}
 	operations := buildOperations(source.Operations)
-	exports := make([]string, 0, len(enums)+len(models)+len(aliases))
+	services, serviceRefs, err := buildServices(source.Operations, symbols)
+	if err != nil {
+		return Document{}, err
+	}
+
+	exports := make([]string, 0, len(enums)+len(models)+len(aliases)+len(services)+3)
 	for _, enum := range enums {
 		exports = append(exports, enum.Name)
 	}
 	for _, model := range models {
 		exports = append(exports, model.Name)
 	}
+	exports = append(exports, "RedirectResponse")
 	for _, alias := range aliases {
 		exports = append(exports, alias.Name)
 	}
+	for _, service := range services {
+		exports = append(exports, service.Name)
+	}
+	exports = append(exports, "OPERATIONS", "Operation")
 	sort.Strings(exports)
 
 	modules := []Module{
 		{
 			Kind:    ModuleInit,
 			Path:    "__init__.py",
-			Imports: initModuleImports(enums, models, aliases),
+			Imports: initModuleImports(enums, models, aliases, services),
 			Exports: exports,
 		},
 		{
@@ -74,13 +85,14 @@ func Build(source contract.Document) (Document, error) {
 			Imports:    operationModuleImports(),
 			Operations: operations,
 		})
-		modules[0].Imports = append(modules[0].Imports, Import{
-			Group:  ImportLocal,
-			Module: ".operations",
-			Names:  []string{"OPERATIONS", "Operation"},
+	}
+	if len(services) != 0 {
+		modules = append(modules, Module{
+			Kind:     ModuleServices,
+			Path:     "services.py",
+			Imports:  serviceModuleImports(serviceRefs),
+			Services: services,
 		})
-		modules[0].Exports = append(modules[0].Exports, "OPERATIONS", "Operation")
-		sort.Strings(modules[0].Exports)
 	}
 	return Document{Modules: modules}, nil
 }
@@ -195,13 +207,22 @@ type modelDependencies struct {
 }
 
 type typeReferences struct {
+	models           map[string]struct{}
 	enums            map[string]struct{}
 	aliases          map[string]struct{}
 	usesAny          bool
+	usesUpload       bool
+	usesBuiltins     bool
 	referencesModels bool
 }
 
 func (references *typeReferences) merge(other typeReferences) {
+	if references.models == nil {
+		references.models = make(map[string]struct{})
+	}
+	for name := range other.models {
+		references.models[name] = struct{}{}
+	}
 	if references.enums == nil {
 		references.enums = make(map[string]struct{})
 	}
@@ -215,7 +236,13 @@ func (references *typeReferences) merge(other typeReferences) {
 		references.aliases[name] = struct{}{}
 	}
 	references.usesAny = references.usesAny || other.usesAny
+	references.usesUpload = references.usesUpload || other.usesUpload
+	references.usesBuiltins = references.usesBuiltins || other.usesBuiltins
 	references.referencesModels = references.referencesModels || other.referencesModels
+}
+
+func (references typeReferences) modelNames() []string {
+	return sortedNames(references.models)
 }
 
 func (references typeReferences) enumNames() []string {
@@ -282,6 +309,350 @@ func buildAliases(source []contract.Alias, symbols symbols) ([]Alias, typeRefere
 	return aliases, dependencies, nil
 }
 
+func buildServices(source []contract.Operation, symbols symbols) ([]ServiceClass, typeReferences, error) {
+	type rawNode struct {
+		group      []string
+		className  string
+		children   map[string]*rawNode
+		operations []contract.Operation
+	}
+
+	root := &rawNode{children: make(map[string]*rawNode)}
+
+	for _, op := range source {
+		current := root
+		for i, segment := range op.ClientMetadata.Group {
+			if current.children[segment] == nil {
+				subGroup := op.ClientMetadata.Group[:i+1]
+				cName, err := serviceClassName(subGroup)
+				if err != nil {
+					return nil, typeReferences{}, err
+				}
+				current.children[segment] = &rawNode{
+					group:     subGroup,
+					className: cName,
+					children:  make(map[string]*rawNode),
+				}
+			}
+			current = current.children[segment]
+		}
+		current.operations = append(current.operations, op)
+	}
+
+	var classes []ServiceClass
+	serviceRefs := typeReferences{}
+
+	var visit func(node *rawNode) error
+	visit = func(node *rawNode) error {
+		childNames := make([]string, 0, len(node.children))
+		for name := range node.children {
+			childNames = append(childNames, name)
+		}
+		sort.Strings(childNames)
+
+		for _, childName := range childNames {
+			if err := visit(node.children[childName]); err != nil {
+				return err
+			}
+		}
+
+		var subServices []ServiceProperty
+		for _, childName := range childNames {
+			child := node.children[childName]
+			propName, err := groupFieldName(childName)
+			if err != nil {
+				return err
+			}
+			subServices = append(subServices, ServiceProperty{
+				Name:      propName,
+				ClassName: child.className,
+			})
+		}
+
+		var methods []ServiceMethod
+		for _, op := range node.operations {
+			method, refs, err := buildServiceMethod(op, symbols)
+			if err != nil {
+				return err
+			}
+			serviceRefs.merge(refs)
+			methods = append(methods, method)
+		}
+
+		name := node.className
+		if len(node.group) == 0 {
+			name = "_GeneratedServicesMixin"
+		}
+
+		classes = append(classes, ServiceClass{
+			Name:        name,
+			SubServices: subServices,
+			Methods:     methods,
+		})
+		return nil
+	}
+
+	if err := visit(root); err != nil {
+		return nil, typeReferences{}, err
+	}
+
+	return classes, serviceRefs, nil
+}
+
+func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, typeReferences, error) {
+	references := typeReferences{}
+	name, err := methodName(op.ClientMetadata.Method)
+	if err != nil {
+		return ServiceMethod{}, typeReferences{}, err
+	}
+
+	pathExpr := formatPathExpr(op.Path)
+	pathParamNames := extractPathParameterNames(op.Path)
+	pathParamsMap := make(map[string]contract.Parameter)
+	for _, param := range op.Parameters {
+		if param.Location == contract.ParameterPath {
+			pathParamsMap[param.Name] = param
+		}
+	}
+	pathParams := make([]MethodParam, 0, len(pathParamNames))
+	for _, pName := range pathParamNames {
+		param, found := pathParamsMap[pName]
+		if !found {
+			continue
+		}
+		pyName, err := fieldName(param.Name)
+		if err != nil {
+			return ServiceMethod{}, typeReferences{}, err
+		}
+		pathParams = append(pathParams, MethodParam{
+			Name:     pyName,
+			JSONName: param.Name,
+			Type:     "str",
+			Required: true,
+		})
+	}
+
+	queryParams := make([]MethodParam, 0)
+	for _, param := range op.Parameters {
+		if param.Location == contract.ParameterQuery {
+			pName, err := fieldName(param.Name)
+			if err != nil {
+				return ServiceMethod{}, typeReferences{}, err
+			}
+			pType, pRefs, err := buildServiceType(param.Type, symbols)
+			if err != nil {
+				return ServiceMethod{}, typeReferences{}, err
+			}
+			references.merge(pRefs)
+			if !param.Required && !param.Type.Nullable {
+				pType += " | None"
+			}
+			queryParams = append(queryParams, MethodParam{
+				Name:     pName,
+				JSONName: param.Name,
+				Type:     pType,
+				Required: param.Required,
+			})
+		}
+	}
+
+	hasBody := false
+	var bodyParam *MethodParam
+	isRawBody := false
+	isMultipart := false
+
+	if op.RequestBody != nil {
+		hasBody = true
+		if op.RequestBody.ContentType == "multipart/form-data" {
+			isMultipart = true
+			references.usesUpload = true
+			references.usesAny = true
+		} else if op.RequestBody.ContentType == "application/json" {
+			bType, bRefs, err := buildServiceType(op.RequestBody.Type, symbols)
+			if err != nil {
+				return ServiceMethod{}, typeReferences{}, err
+			}
+			references.merge(bRefs)
+			references.usesAny = true
+			bodyType := bType + " | dict[str, Any]"
+			if !op.RequestBody.Required {
+				bodyType += " | None"
+			}
+			bodyParam = &MethodParam{
+				Name:     "body",
+				Type:     bodyType,
+				Required: op.RequestBody.Required,
+			}
+		} else {
+			isRawBody = true
+		}
+	}
+
+	returnType := "None"
+	returnModelName := ""
+	isReturnList := false
+	isReturnModel := false
+
+	if op.Success.Status == 302 {
+		returnType = "RedirectResponse"
+		references.models["RedirectResponse"] = struct{}{}
+	} else if op.Success.Type != nil {
+		tName, tRefs, err := buildServiceType(*op.Success.Type, symbols)
+		if err != nil {
+			return ServiceMethod{}, typeReferences{}, err
+		}
+		references.merge(tRefs)
+		returnType = tName
+		if op.Success.Type.Kind == contract.KindModel {
+			isReturnModel = true
+			returnModelName = symbols.models[op.Success.Type.Name]
+			references.models[returnModelName] = struct{}{}
+		} else if op.Success.Type.Kind == contract.KindArray && op.Success.Type.Items != nil && op.Success.Type.Items.Kind == contract.KindModel {
+			isReturnList = true
+			returnModelName = symbols.models[op.Success.Type.Items.Name]
+			references.models[returnModelName] = struct{}{}
+			references.usesBuiltins = true
+		}
+	}
+
+	return ServiceMethod{
+		Name:            name,
+		OperationID:     op.ID,
+		HTTPMethod:      op.Method,
+		PathExpr:        pathExpr,
+		PathParams:      pathParams,
+		QueryParams:     queryParams,
+		HasBody:         hasBody,
+		BodyParam:       bodyParam,
+		IsRawBody:       isRawBody,
+		IsMultipart:     isMultipart,
+		SuccessStatus:   op.Success.Status,
+		ReturnType:      returnType,
+		ReturnModelName: returnModelName,
+		IsReturnList:    isReturnList,
+		IsReturnModel:   isReturnModel,
+	}, references, nil
+}
+
+func buildServiceType(source contract.Type, symbols symbols) (string, typeReferences, error) {
+	var typeName string
+	references := typeReferences{
+		models:  make(map[string]struct{}),
+		enums:   make(map[string]struct{}),
+		aliases: make(map[string]struct{}),
+	}
+	switch source.Kind {
+	case contract.KindString:
+		typeName = "str"
+	case contract.KindInteger:
+		typeName = "int"
+	case contract.KindNumber:
+		typeName = "float"
+	case contract.KindBoolean:
+		typeName = "bool"
+	case contract.KindAny:
+		typeName = "Any"
+		references.usesAny = true
+	case contract.KindArray:
+		if source.Items == nil {
+			return "", typeReferences{}, fmt.Errorf("array items are required")
+		}
+		itemType, itemReferences, err := buildServiceType(*source.Items, symbols)
+		if err != nil {
+			return "", typeReferences{}, fmt.Errorf("array items: %w", err)
+		}
+		typeName = "builtins.list[" + itemType + "]"
+		references.usesBuiltins = true
+		references.merge(itemReferences)
+	case contract.KindMap:
+		if source.Items == nil {
+			return "", typeReferences{}, fmt.Errorf("map values are required")
+		}
+		valueType, valueReferences, err := buildServiceType(*source.Items, symbols)
+		if err != nil {
+			return "", typeReferences{}, fmt.Errorf("map values: %w", err)
+		}
+		typeName = "dict[str, " + valueType + "]"
+		references.merge(valueReferences)
+	case contract.KindUnion:
+		if len(source.Values) == 0 {
+			return "", typeReferences{}, fmt.Errorf("union values are required")
+		}
+		values := make([]string, 0, len(source.Values))
+		for _, value := range source.Values {
+			valueType, valueReferences, err := buildServiceType(value, symbols)
+			if err != nil {
+				return "", typeReferences{}, fmt.Errorf("union value: %w", err)
+			}
+			values = append(values, valueType)
+			references.merge(valueReferences)
+		}
+		typeName = strings.Join(values, " | ")
+	case contract.KindModel:
+		name, found := symbols.models[source.Name]
+		if !found {
+			return "", typeReferences{}, fmt.Errorf("references unknown model %q", source.Name)
+		}
+		typeName = name
+		references.models[name] = struct{}{}
+		references.referencesModels = true
+	case contract.KindEnum:
+		name, found := symbols.enums[source.Name]
+		if !found {
+			return "", typeReferences{}, fmt.Errorf("references unknown enum %q", source.Name)
+		}
+		typeName = name
+		references.enums[name] = struct{}{}
+	case contract.KindAlias:
+		name, found := symbols.aliases[source.Name]
+		if !found {
+			return "", typeReferences{}, fmt.Errorf("references unknown alias %q", source.Name)
+		}
+		typeName = name
+		references.aliases[name] = struct{}{}
+	default:
+		return "", typeReferences{}, fmt.Errorf("unsupported contract type %q", source.Kind)
+	}
+	if source.Nullable {
+		typeName += " | None"
+	}
+	return typeName, references, nil
+}
+
+func formatPathExpr(path string) string {
+	segments := strings.Split(path, "/")
+	hasInterpolation := false
+	var builder strings.Builder
+	for i, seg := range segments {
+		if i > 0 {
+			builder.WriteString("/")
+		}
+		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
+			hasInterpolation = true
+			paramName := strings.Trim(seg, "{}")
+			pyName, _ := fieldName(paramName)
+			builder.WriteString(fmt.Sprintf("{_quote_path(str(%s), safe='')}", pyName))
+		} else {
+			builder.WriteString(seg)
+		}
+	}
+	if hasInterpolation {
+		return fmt.Sprintf("f%q", builder.String())
+	}
+	return strconv.Quote(path)
+}
+
+func extractPathParameterNames(path string) []string {
+	var names []string
+	segments := strings.Split(path, "/")
+	for _, seg := range segments {
+		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
+			names = append(names, strings.Trim(seg, "{}"))
+		}
+	}
+	return names
+}
+
 func enumModuleImports(enums []Enum) []Import {
 	if len(enums) == 0 {
 		return nil
@@ -299,9 +670,8 @@ func operationModuleImports() []Import {
 
 func modelModuleImports(models []Model, dependencies modelDependencies) []Import {
 	imports := make([]Import, 0, 5)
-	if dependencies.needsAnnotations {
-		imports = append(imports, Import{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}})
-	}
+	imports = append(imports, Import{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}})
+	imports = append(imports, Import{Group: ImportStandard, Module: "collections.abc", Names: []string{"Mapping"}})
 	if len(models) != 0 {
 		names := []string{"dataclass"}
 		if dependencies.needsDataclassField {
@@ -309,9 +679,7 @@ func modelModuleImports(models []Model, dependencies modelDependencies) []Import
 		}
 		imports = append(imports, Import{Group: ImportStandard, Module: "dataclasses", Names: names})
 	}
-	if dependencies.needsAny {
-		imports = append(imports, Import{Group: ImportStandard, Module: "typing", Names: []string{"Any"}})
-	}
+	imports = append(imports, Import{Group: ImportStandard, Module: "typing", Names: []string{"Any"}})
 	if len(dependencies.enumNames) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: dependencies.enumNames})
 	}
@@ -332,16 +700,61 @@ func typeModuleImports(dependencies typeReferences) []Import {
 	}
 }
 
-func initModuleImports(enums []Enum, models []Model, aliases []Alias) []Import {
-	imports := make([]Import, 0, 3)
+func serviceModuleImports(refs typeReferences) []Import {
+	imports := []Import{
+		{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}},
+	}
+	if refs.usesBuiltins {
+		imports = append(imports, Import{Group: ImportStandard, Module: "builtins", Names: nil})
+	}
+	typingNames := make([]string, 0, 2)
+	if refs.usesAny {
+		typingNames = append(typingNames, "Any")
+	}
+	if len(typingNames) != 0 {
+		imports = append(imports, Import{Group: ImportStandard, Module: "typing", Names: typingNames})
+	}
+	imports = append(imports, Import{Group: ImportStandard, Module: "urllib.parse", Names: []string{"quote as _quote_path"}})
+
+	if enumNames := refs.enumNames(); len(enumNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: enumNames})
+	}
+	if modelNames := refs.modelNames(); len(modelNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: modelNames})
+	}
+	imports = append(imports, Import{Group: ImportLocal, Module: ".operations", Names: []string{"OPERATIONS"}})
+	if aliasNames := refs.aliasNames(); len(aliasNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".types", Names: aliasNames})
+	}
+	if refs.usesUpload {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".._upload", Names: []string{"Upload"}})
+	}
+	if _, hasRedirect := refs.models["RedirectResponse"]; hasRedirect {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".._errors", Names: []string{"ApiError"}})
+	}
+	return imports
+}
+
+func initModuleImports(enums []Enum, models []Model, aliases []Alias, services []ServiceClass) []Import {
+	imports := make([]Import, 0, 5)
 	if names := namesOfEnums(enums); len(names) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: names})
 	}
-	if names := namesOfModels(models); len(names) != 0 {
-		imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: names})
-	}
+	modelNames := namesOfModels(models)
+	modelNames = append(modelNames, "RedirectResponse")
+	sort.Strings(modelNames)
+	imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: modelNames})
 	if names := namesOfAliases(aliases); len(names) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".types", Names: names})
+	}
+	imports = append(imports, Import{Group: ImportLocal, Module: ".operations", Names: []string{"OPERATIONS", "Operation"}})
+	if len(services) != 0 {
+		serviceNames := make([]string, 0, len(services))
+		for _, service := range services {
+			serviceNames = append(serviceNames, service.Name)
+		}
+		sort.Strings(serviceNames)
+		imports = append(imports, Import{Group: ImportLocal, Module: ".services", Names: serviceNames})
 	}
 	return imports
 }
@@ -358,7 +771,55 @@ func buildField(source contract.Field, symbols symbols) (Field, typeReferences, 
 	if !source.Required && !source.Type.Nullable {
 		typeName += " | None"
 	}
-	return Field{Name: name, JSONName: source.Name, Type: typeName, Required: source.Required}, references, nil
+
+	codecKind := CodecPrimitive
+	targetType := ""
+
+	switch source.Type.Kind {
+	case contract.KindModel:
+		codecKind = CodecModel
+		targetType = symbols.models[source.Type.Name]
+	case contract.KindEnum:
+		codecKind = CodecEnum
+		targetType = symbols.enums[source.Type.Name]
+	case contract.KindAlias:
+		codecKind = CodecAlias
+		targetType = symbols.aliases[source.Type.Name]
+	case contract.KindArray:
+		if source.Type.Items != nil {
+			if source.Type.Items.Kind == contract.KindModel {
+				codecKind = CodecListModel
+				targetType = symbols.models[source.Type.Items.Name]
+			} else if source.Type.Items.Kind == contract.KindEnum {
+				codecKind = CodecListEnum
+				targetType = symbols.enums[source.Type.Items.Name]
+			} else {
+				codecKind = CodecListPrim
+			}
+		}
+	case contract.KindMap:
+		if source.Type.Items != nil {
+			if source.Type.Items.Kind == contract.KindModel {
+				codecKind = CodecMapModel
+				targetType = symbols.models[source.Type.Items.Name]
+			} else if source.Type.Items.Kind == contract.KindEnum {
+				codecKind = CodecMapEnum
+				targetType = symbols.enums[source.Type.Items.Name]
+			} else {
+				codecKind = CodecMapPrim
+			}
+		}
+	}
+
+	return Field{
+		Name:       name,
+		JSONName:   source.Name,
+		Type:       typeName,
+		Required:   source.Required,
+		Nullable:   source.Type.Nullable,
+		CodecKind:  codecKind,
+		TargetType: targetType,
+	}, references, nil
 }
 
 func buildType(source contract.Type, symbols symbols) (string, typeReferences, error) {

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/lock"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
@@ -58,17 +57,15 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 	target.Output = output
 
-	if err := writeFixture(fixturePath, bootstrap.OpenAPI()); err != nil {
+	sourceDocument, err := source.Fetch(configuration.OpenAPI)
+	if err != nil {
+		return fmt.Errorf("fetch OpenAPI contract: %w", err)
+	}
+	if err := source.WriteSnapshot(workingDirectory, configuration.OpenAPI, sourceDocument); err != nil {
 		return err
 	}
 	configuration.Targets[0] = target
 	if err := config.WriteNew(configPath, configuration); err != nil {
-		_ = os.Remove(fixturePath)
-		return err
-	}
-	sourceDocument, err := source.Resolve(workingDirectory, configuration.OpenAPI)
-	if err != nil {
-		_ = os.Remove(configPath)
 		_ = os.Remove(fixturePath)
 		return err
 	}
@@ -97,31 +94,6 @@ func ensureNewFile(path string, label string) error {
 	return nil
 }
 
-func writeFixture(path string, contents []byte) error {
-	directory := filepath.Dir(path)
-	if err := os.MkdirAll(directory, 0o755); err != nil {
-		return fmt.Errorf("create OpenAPI directory: %w", err)
-	}
-	if err := ensureDirectory(directory, "OpenAPI directory"); err != nil {
-		return err
-	}
-
-	handle, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return fmt.Errorf("create OpenAPI fixture: %w", err)
-	}
-	if _, err := handle.Write(contents); err != nil {
-		_ = handle.Close()
-		_ = os.Remove(path)
-		return fmt.Errorf("write OpenAPI fixture: %w", err)
-	}
-	if err := handle.Close(); err != nil {
-		_ = os.Remove(path)
-		return fmt.Errorf("close OpenAPI fixture: %w", err)
-	}
-
-	return nil
-}
 
 func ensureDirectory(path string, label string) error {
 	info, err := os.Lstat(path)

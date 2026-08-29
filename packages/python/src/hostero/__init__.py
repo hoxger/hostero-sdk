@@ -12,6 +12,8 @@ from ._errors import (
     RateLimitError,
     ValidationError,
 )
+from ._generated import RedirectResponse
+from ._upload import Upload
 
 __all__ = [
     "DEFAULT_BASE_URL",
@@ -24,5 +26,7 @@ __all__ = [
     "HosteroError",
     "NotFoundError",
     "RateLimitError",
+    "RedirectResponse",
+    "Upload",
     "ValidationError",
 ]

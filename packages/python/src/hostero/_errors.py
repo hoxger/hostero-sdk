@@ -24,18 +24,26 @@ class ApiError(HosteroError):
         self,
         *,
         status_code: int,
-        code: str | None,
-        detail: object | None,
-        operation: Operation | None,
+        code: str | None = None,
+        detail: object | None = None,
+        operation: Operation | None = None,
     ) -> None:
         self.status_code = status_code
         self.code = code
         self.detail = detail
         self.operation = operation
 
-        message = f"Hostero API request failed with HTTP {status_code}"
+        parts: list[str] = [f"HTTP {status_code}"]
         if code is not None:
-            message += f" ({code})"
+            parts.append(f"({code})")
+        header = f"Hostero API request failed with {' '.join(parts)}"
+        if detail is not None:
+            if isinstance(detail, str):
+                message = f"{header}: {detail}"
+            else:
+                message = f"{header}: {detail!r}"
+        else:
+            message = header
         super().__init__(message)
 
 

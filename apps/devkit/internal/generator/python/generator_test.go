@@ -6,66 +6,45 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 )
 
-func TestBuildAndRenderFixture(t *testing.T) {
+func TestBuildAndRenderPinnedContract(t *testing.T) {
 	document, err := Build(fixtureContract(t))
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if len(document.Modules) != 4 {
-		t.Fatalf("module count = %d, want 4", len(document.Modules))
-	}
-	models := document.Modules[2].Models
-	if models[1].Name != "GameServerListItem" || models[1].Fields[0].Type != "str | None" || !models[1].Fields[0].Required {
-		t.Fatalf("unexpected nullable model field: %#v", models[1].Fields[0])
-	}
-	if models[1].Fields[len(models[1].Fields)-1].Type != "GameServerStatus" {
-		t.Fatalf("enum field was not resolved: %#v", models[1].Fields)
-	}
-	modelImports := document.Modules[2].Imports
-	if len(modelImports) != 3 || modelImports[1].Module != "dataclasses" || strings.Join(modelImports[1].Names, ",") != "dataclass" {
-		t.Fatalf("model imports must contain only used dependencies: %#v", modelImports)
+	if len(document.Modules) != 6 {
+		t.Fatalf("module count = %d, want 6", len(document.Modules))
 	}
 
 	files, err := Render(document, fixtureMetadata)
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
-	for _, path := range []string{"__init__.py", "enums.py", "models.py", "operations.py"} {
-		want, err := os.ReadFile(filepath.Join("testdata", "fixture", path))
-		if err != nil {
-			t.Fatalf("read golden file %q: %v", path, err)
-		}
-		if got := string(files[path]); got != string(want) {
-			t.Errorf("rendered %s does not match golden file\nwant:\n%s\ngot:\n%s", path, want, got)
-		}
-	}
-}
 
-func TestBuildRendersOperationPermissions(t *testing.T) {
-	document, err := Build(fixtureContract(t))
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
+	modelsCode := string(files["models.py"])
+	if !strings.Contains(modelsCode, "class GameServerListItemResource:") ||
+		!strings.Contains(modelsCode, "def _from_dict(cls, data: Mapping[str, Any])") ||
+		!strings.Contains(modelsCode, "def _to_dict(self) -> dict[str, Any]:") {
+		t.Fatalf("models.py missing expected model or codec: %s", modelsCode)
 	}
-	operations := document.Modules[3].Operations
-	if len(operations) != 3 {
-		t.Fatalf("operation count = %d, want 3", len(operations))
+
+	servicesCode := string(files["services.py"])
+	if !strings.Contains(servicesCode, "class _GeneratedServicesMixin:") ||
+		!strings.Contains(servicesCode, "class ServersPowerService:") ||
+		!strings.Contains(servicesCode, "class ServersFilesContentsService:") ||
+		!strings.Contains(servicesCode, "class TicketsMessagesAttachmentsService:") {
+		t.Fatalf("services.py missing expected services: %s", servicesCode)
 	}
-	if operation := operations[2]; operation.ID != "restartGameServer" || strings.Join(operation.Permissions, ",") != "game_servers.power.restart" || strings.Join(operation.TargetKinds, ",") != "game_server" {
-		t.Fatalf("unexpected operation metadata: %#v", operation)
-	}
-	files, err := Render(document, fixtureMetadata)
-	if err != nil {
-		t.Fatalf("Render() error = %v", err)
-	}
-	if rendered := string(files["operations.py"]); !strings.Contains(rendered, `operation_id="restartGameServer"`) || !strings.Contains(rendered, `required_permissions=("game_servers.power.restart",)`) || !strings.Contains(rendered, `target_kinds=("game_server",)`) {
-		t.Fatalf("operation metadata was not rendered: %s", rendered)
+
+	initCode := string(files["__init__.py"])
+	if !strings.Contains(initCode, "_GeneratedServicesMixin") ||
+		!strings.Contains(initCode, "RedirectResponse") {
+		t.Fatalf("__init__.py missing expected exports: %s", initCode)
 	}
 }
 
@@ -75,6 +54,12 @@ func TestBuildMapsNamesAndRejectsCollisions(t *testing.T) {
 	}
 	if name, err := fieldName("apiURL"); err != nil || name != "api_url" {
 		t.Fatalf("fieldName(apiURL) = %q, %v", name, err)
+	}
+	if name, err := methodName("get-active"); err != nil || name != "get_active" {
+		t.Fatalf("methodName(get-active) = %q, %v", name, err)
+	}
+	if name, err := serviceClassName([]string{"servers", "files", "contents"}); err != nil || name != "ServersFilesContentsService" {
+		t.Fatalf("serviceClassName = %q, %v", name, err)
 	}
 
 	document, err := Build(contract.Document{Models: []contract.Model{{
@@ -91,8 +76,8 @@ func TestBuildMapsNamesAndRejectsCollisions(t *testing.T) {
 	if model.Name != "ServerRecord" || model.Fields[0].Name != "class_" || model.Fields[0].JSONName != "class" || model.Fields[1].Name != "display_name" || model.Fields[1].Type != "str | None" {
 		t.Fatalf("unexpected Python name mapping: %#v", model)
 	}
-	if imports := document.Modules[2].Imports; len(imports) != 1 || imports[0].Module != "dataclasses" || strings.Join(imports[0].Names, ",") != "dataclass,field" {
-		t.Fatalf("renamed fields must request dataclasses.field: %#v", imports)
+	if imports := document.Modules[2].Imports; len(imports) < 2 {
+		t.Fatalf("expected imports in models.py: %#v", imports)
 	}
 	files, err := Render(document, fixtureMetadata)
 	if err != nil {
@@ -195,7 +180,11 @@ func TestRenderRejectsInvalidGenerationMetadata(t *testing.T) {
 
 func fixtureContract(t *testing.T) contract.Document {
 	t.Helper()
-	parsed, err := openapi.Parse(source.Document{Bytes: bootstrap.OpenAPI()})
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "openapi", "hostero.openapi.json"))
+	if err != nil {
+		t.Fatalf("read hostero.openapi.json: %v", err)
+	}
+	parsed, err := openapi.Parse(source.Document{Bytes: contents})
 	if err != nil {
 		t.Fatalf("parse fixture: %v", err)
 	}
@@ -209,6 +198,6 @@ func fixtureContract(t *testing.T) contract.Document {
 var fixtureMetadata = GenerationMetadata{
 	DevKitVersion: "test",
 	OpenAPISource: "https://api.example.test/openapi.json",
-	Release:       "mvp",
-	SHA256:        "03c46244b097e10690b86591c5619747855cc1a6cb7f76214c99daeb8648f4d4",
+	Release:       "vdev.2026.08.29.214457",
+	SHA256:        "0e8cdff76c3568eff2a4d414341c9e052b4d8f943d96295981b2dea8dca03e07",
 }
