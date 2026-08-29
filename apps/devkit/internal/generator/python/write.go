@@ -43,6 +43,9 @@ func Write(projectDirectory string, output string, files map[string][]byte) erro
 	if err := writeFiles(stagedGeneratedRoot, files); err != nil {
 		return err
 	}
+	if err := formatGeneratedDirectory(projectRoot, outputRoot, stagedGeneratedRoot); err != nil {
+		return err
+	}
 	if err := replaceGeneratedDirectory(outputRoot, generatedRoot, stagedGeneratedRoot); err != nil {
 		return err
 	}

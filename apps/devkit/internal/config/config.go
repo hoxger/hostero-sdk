@@ -26,7 +26,7 @@ type SourceKind string
 const SourceKindURL SourceKind = "url"
 
 const (
-	defaultOpenAPIURL      = "http://localhost:8000/v1/openapi.json"
+	defaultOpenAPIURL      = "https://beta-api.hostero.gg/v1/openapi.json"
 	defaultOpenAPISnapshot = "./openapi/hostero.openapi.json"
 )
 
@@ -118,17 +118,20 @@ func WriteNew(path string, file File) error {
 	return nil
 }
 
-func Load(path string) (File, error) {
+func Load(path string) (file File, err error) {
 	handle, err := os.Open(path)
 	if err != nil {
 		return File{}, fmt.Errorf("open %s: %w", filepath.Base(path), err)
 	}
-	defer handle.Close()
+	defer func() {
+		if closeErr := handle.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close %s: %w", filepath.Base(path), closeErr)
+		}
+	}()
 
 	decoder := yaml.NewDecoder(handle)
 	decoder.KnownFields(true)
 
-	var file File
 	if err := decoder.Decode(&file); err != nil {
 		return File{}, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
 	}

@@ -2,7 +2,7 @@ version: 1
 openapi:
   source:
     kind: url
-    url: http://localhost:8000/v1/openapi.json
+    url: https://beta-api.hostero.gg/v1/openapi.json
   snapshot: ./openapi/hostero.openapi.json
 targets:
   - language: python
