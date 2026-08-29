@@ -363,4 +363,3 @@ func renderMethodReturn(m ServiceMethod) string {
 	}
 	return "        return response.json()"
 }
-

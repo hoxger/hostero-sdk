@@ -40,10 +40,11 @@ def test_upload_from_path_and_context_manager(tmp_path: Path) -> None:
         assert httpx_files["file"][0] == "test_file.log"
         file_obj = httpx_files["file"][1]
         assert hasattr(file_obj, "read")
-        assert not file_obj.closed
+        assert hasattr(file_obj, "closed")
+        assert not getattr(file_obj, "closed")
 
     # Verify file object was closed on exit
-    assert file_obj.closed
+    assert getattr(file_obj, "closed")
 
 
 def test_upload_from_path_nonexistent_raises(tmp_path: Path) -> None:

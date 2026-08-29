@@ -139,4 +139,3 @@ type MethodParam struct {
 	DefaultValue string
 	Required     bool
 }
-

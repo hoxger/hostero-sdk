@@ -12,7 +12,7 @@ import (
 const (
 	requiredPermissionsExtension = "x-hostero-required-permissions"
 	targetKindsExtension         = "x-hostero-target-kind"
-	clientMetadataExtension     = "x-hostero-client"
+	clientMetadataExtension      = "x-hostero-client"
 )
 
 func buildOperations(paths *openapi3.Paths, classes map[string]Kind) ([]Operation, error) {
@@ -351,4 +351,3 @@ func parseClientMetadata(source *openapi3.Operation) (ClientMetadata, error) {
 		Method: method,
 	}, nil
 }
-

@@ -94,7 +94,6 @@ func ensureNewFile(path string, label string) error {
 	return nil
 }
 
-
 func ensureDirectory(path string, label string) error {
 	info, err := os.Lstat(path)
 	if err != nil {

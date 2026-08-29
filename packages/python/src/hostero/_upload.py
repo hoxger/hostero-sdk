@@ -83,8 +83,10 @@ class Upload:
         return {"file": (self._filename, self._data, self._content_type)}
 
     def close(self) -> None:
-        if self._should_close and hasattr(self._data, "close"):
-            self._data.close()
+        if self._should_close:
+            close_method = getattr(self._data, "close", None)
+            if callable(close_method):
+                close_method()
 
     def __enter__(self) -> Upload:
         return self
