@@ -1,7 +1,10 @@
 """Python SDK for the Hostero API."""
 
+from . import exceptions
 from ._client import DEFAULT_BASE_URL, Hostero
-from ._errors import (
+from ._generated import RedirectResponse
+from ._upload import Upload
+from .exceptions import (
     ApiError,
     AuthenticationError,
     ConfigurationError,
@@ -12,8 +15,6 @@ from ._errors import (
     RateLimitError,
     ValidationError,
 )
-from ._generated import RedirectResponse
-from ._upload import Upload
 
 __all__ = [
     "DEFAULT_BASE_URL",
@@ -29,4 +30,5 @@ __all__ = [
     "RedirectResponse",
     "Upload",
     "ValidationError",
+    "exceptions",
 ]

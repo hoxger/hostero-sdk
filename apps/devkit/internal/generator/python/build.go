@@ -730,7 +730,7 @@ func serviceModuleImports(refs typeReferences) []Import {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".._upload", Names: []string{"Upload"}})
 	}
 	if _, hasRedirect := refs.models["RedirectResponse"]; hasRedirect {
-		imports = append(imports, Import{Group: ImportLocal, Module: ".._errors", Names: []string{"ApiError"}})
+		imports = append(imports, Import{Group: ImportLocal, Module: "..exceptions", Names: []string{"ApiError"}})
 	}
 	return imports
 }

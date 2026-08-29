@@ -9,8 +9,8 @@ import builtins
 from typing import Any
 from urllib.parse import quote as _quote_path
 
-from .._errors import ApiError
 from .._upload import Upload
+from ..exceptions import ApiError
 from .models import (
     AxonOperationResource,
     CustomerGameAllocationResource,

@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from ._auth import _ApiKeyAuth
-from ._errors import ConfigurationError, error_from_response
 from ._generated import _GeneratedServicesMixin
+from .exceptions import ConfigurationError, error_from_response
 
 if TYPE_CHECKING:
     from ._generated.operations import Operation

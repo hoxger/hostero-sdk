@@ -1,4 +1,4 @@
-"""Errors raised by the Hostero Python SDK."""
+"""Exceptions raised by the Hostero Python SDK."""
 
 from __future__ import annotations
 
