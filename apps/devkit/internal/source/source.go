@@ -1,6 +1,7 @@
 package source
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -42,7 +43,7 @@ func Resolve(projectDirectory string, openAPI config.OpenAPI) (Document, error) 
 	return documentFromBytes(contents)
 }
 
-func Fetch(openAPI config.OpenAPI) (Document, error) {
+func Fetch(ctx context.Context, openAPI config.OpenAPI) (Document, error) {
 	if openAPI.Source.Kind != config.SourceKindURL {
 		return Document{}, fmt.Errorf("unsupported OpenAPI source kind %q", openAPI.Source.Kind)
 	}
@@ -50,7 +51,7 @@ func Fetch(openAPI config.OpenAPI) (Document, error) {
 		return Document{}, fmt.Errorf("validate OpenAPI source URL: %w", err)
 	}
 
-	request, err := http.NewRequest(http.MethodGet, openAPI.Source.URL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, openAPI.Source.URL, nil)
 	if err != nil {
 		return Document{}, fmt.Errorf("create OpenAPI request: %w", err)
 	}
@@ -59,7 +60,7 @@ func Fetch(openAPI config.OpenAPI) (Document, error) {
 	if err != nil {
 		return Document{}, fmt.Errorf("fetch OpenAPI source: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return Document{}, fmt.Errorf("fetch OpenAPI source: unexpected HTTP status %s", response.Status)
@@ -107,7 +108,7 @@ func WriteSnapshot(projectDirectory string, openAPI config.OpenAPI, document Doc
 		return fmt.Errorf("create OpenAPI snapshot temporary file: %w", err)
 	}
 	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	defer func() { _ = os.Remove(temporaryPath) }()
 
 	if err := temporary.Chmod(0o644); err != nil {
 		_ = temporary.Close()

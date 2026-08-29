@@ -319,6 +319,11 @@ func renderFromDictField(f Field) string {
 			return fmt.Sprintf("{k: %s._from_dict(v) for k, v in data[%s].items() if v is not None}", f.TargetType, jsonKey)
 		}
 		return fmt.Sprintf("{k: %s._from_dict(v) for k, v in data[%s].items() if v is not None} if data.get(%s) is not None else None", f.TargetType, jsonKey, jsonKey)
+	case CodecMapEnum:
+		if f.Required && !f.Nullable {
+			return fmt.Sprintf("{k: %s(v) for k, v in data[%s].items() if v is not None}", f.TargetType, jsonKey)
+		}
+		return fmt.Sprintf("{k: %s(v) for k, v in data[%s].items() if v is not None} if data.get(%s) is not None else None", f.TargetType, jsonKey, jsonKey)
 	default:
 		if f.Required && !f.Nullable {
 			return fmt.Sprintf("data[%s]", jsonKey)
@@ -341,6 +346,8 @@ func renderToDictField(f Field) string {
 		return fmt.Sprintf("        if self.%s is not None:\n            result[%s] = [item.value for item in self.%s]", name, jsonKey, name)
 	case CodecMapModel:
 		return fmt.Sprintf("        if self.%s is not None:\n            result[%s] = {k: v._to_dict() for k, v in self.%s.items()}", name, jsonKey, name)
+	case CodecMapEnum:
+		return fmt.Sprintf("        if self.%s is not None:\n            result[%s] = {k: v.value for k, v in self.%s.items()}", name, jsonKey, name)
 	default:
 		return fmt.Sprintf("        if self.%s is not None:\n            result[%s] = self.%s", name, jsonKey, name)
 	}

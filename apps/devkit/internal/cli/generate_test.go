@@ -2,11 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGenerateCreatesCompilablePythonSources(t *testing.T) {
@@ -50,7 +52,9 @@ func TestGenerateCreatesCompilablePythonSources(t *testing.T) {
 		t.Fatalf("generated Python files = %v, %v", paths, err)
 	}
 
-	command := exec.Command("python3", append([]string{"-m", "py_compile"}, paths...)...)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "python3", append([]string{"-m", "py_compile"}, paths...)...)
 	command.Dir = workingDirectory
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("compile generated Python: %v\n%s", err, output)

@@ -1,11 +1,13 @@
 package python
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 )
 
 var runRuffFormat = runRuffFormatCommand
@@ -30,7 +32,7 @@ func findPythonProjectRoot(projectRoot string, outputRoot string) (string, bool,
 		info, err := os.Lstat(configuration)
 		if err == nil {
 			if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
-				return "", false, fmt.Errorf("Python project configuration must be a regular file")
+				return "", false, fmt.Errorf("python project configuration must be a regular file")
 			}
 			return current, true, nil
 		}
@@ -48,8 +50,10 @@ func runRuffFormatCommand(projectRoot string, generatedRoot string) error {
 		{"ruff", "check", "--select", "I", "--fix", generatedRoot},
 		{"ruff", "format", generatedRoot},
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	for _, arguments := range commands {
-		command := exec.Command("uv", append([]string{"run", "--project", projectRoot}, arguments...)...)
+		command := exec.CommandContext(ctx, "uv", append([]string{"run", "--project", projectRoot}, arguments...)...)
 		command.Dir = projectRoot
 		if output, err := command.CombinedOutput(); err != nil {
 			return fmt.Errorf("run Ruff %s: %w\n%s", arguments[1], err, output)

@@ -86,7 +86,7 @@ func Replace(path string, file File) error {
 		return fmt.Errorf("create %s temporary file: %w", FileName, err)
 	}
 	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	defer func() { _ = os.Remove(temporaryPath) }()
 	if err := temporary.Chmod(0o644); err != nil {
 		_ = temporary.Close()
 		return fmt.Errorf("set %s permissions: %w", FileName, err)
@@ -117,20 +117,19 @@ func encode(file File) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-func Load(path string) (File, error) {
+func Load(path string) (file File, err error) {
 	handle, err := os.Open(path)
 	if err != nil {
 		return File{}, fmt.Errorf("open %s: %w", filepath.Base(path), err)
 	}
 	defer func() {
-		if err := handle.Close(); err != nil {
-			fmt.Printf("close %s: %v\n", filepath.Base(path), err)
+		if closeErr := handle.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close %s: %w", filepath.Base(path), closeErr)
 		}
 	}()
 
 	decoder := yaml.NewDecoder(handle)
 	decoder.KnownFields(true)
-	var file File
 	if err := decoder.Decode(&file); err != nil {
 		return File{}, fmt.Errorf("decode %s: %w", filepath.Base(path), err)
 	}

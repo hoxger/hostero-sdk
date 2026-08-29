@@ -57,7 +57,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 	target.Output = output
 
-	sourceDocument, err := source.Fetch(configuration.OpenAPI)
+	sourceDocument, err := source.Fetch(cmd.Context(), configuration.OpenAPI)
 	if err != nil {
 		return fmt.Errorf("fetch OpenAPI contract: %w", err)
 	}
@@ -75,7 +75,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		writer,
 		"\nCreated %s\nCreated %s\nCreated %s\n\nNext: hostero-devkit update && hostero-devkit generate\n",
 		config.FileName,
@@ -122,12 +122,12 @@ func promptOutput(reader *bufio.Reader, writer io.Writer, defaultValue string) (
 			return output, nil
 		}
 
-		fmt.Fprintln(writer, "Output must stay inside the current project directory.")
+		_, _ = fmt.Fprintln(writer, "Output must stay inside the current project directory.")
 	}
 }
 
 func prompt(reader *bufio.Reader, writer io.Writer, label string, defaultValue string) (string, error) {
-	fmt.Fprintf(writer, "? %s [%s]: ", label, defaultValue)
+	_, _ = fmt.Fprintf(writer, "? %s [%s]: ", label, defaultValue)
 	value, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("read %s: %w", strings.ToLower(label), err)

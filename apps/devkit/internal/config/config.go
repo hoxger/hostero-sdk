@@ -199,7 +199,7 @@ func ValidateSourceURL(rawURL string) error {
 
 func ValidateOutput(output string) error {
 	if err := ValidateProjectPath(output); err != nil {
-		return errors.New("output must stay inside the current project directory")
+		return fmt.Errorf("output path: %w", err)
 	}
 	return nil
 }

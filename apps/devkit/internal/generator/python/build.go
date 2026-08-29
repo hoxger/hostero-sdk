@@ -79,14 +79,12 @@ func Build(source contract.Document) (Document, error) {
 			Aliases: aliases,
 		})
 	}
-	if len(operations) != 0 {
-		modules = append(modules, Module{
-			Kind:       ModuleOperations,
-			Path:       "operations.py",
-			Imports:    operationModuleImports(),
-			Operations: operations,
-		})
-	}
+	modules = append(modules, Module{
+		Kind:       ModuleOperations,
+		Path:       "operations.py",
+		Imports:    operationModuleImports(),
+		Operations: operations,
+	})
 	if len(services) != 0 {
 		modules = append(modules, Module{
 			Kind:     ModuleServices,
@@ -401,25 +399,36 @@ func buildServices(source []contract.Operation, symbols symbols) ([]ServiceClass
 }
 
 func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, typeReferences, error) {
-	references := typeReferences{}
+	references := typeReferences{
+		models:  make(map[string]struct{}),
+		enums:   make(map[string]struct{}),
+		aliases: make(map[string]struct{}),
+	}
 	name, err := methodName(op.ClientMetadata.Method)
 	if err != nil {
 		return ServiceMethod{}, typeReferences{}, err
 	}
 
-	pathExpr := formatPathExpr(op.Path)
-	pathParamNames := extractPathParameterNames(op.Path)
 	pathParamsMap := make(map[string]contract.Parameter)
 	for _, param := range op.Parameters {
 		if param.Location == contract.ParameterPath {
 			pathParamsMap[param.Name] = param
 		}
 	}
+
+	pathExpr, err := formatPathExpr(op.Path, pathParamsMap)
+	if err != nil {
+		return ServiceMethod{}, typeReferences{}, err
+	}
+	pathParamNames, err := extractPathParameterNames(op.Path)
+	if err != nil {
+		return ServiceMethod{}, typeReferences{}, err
+	}
 	pathParams := make([]MethodParam, 0, len(pathParamNames))
 	for _, pName := range pathParamNames {
 		param, found := pathParamsMap[pName]
 		if !found {
-			continue
+			return ServiceMethod{}, typeReferences{}, fmt.Errorf("path parameter %q is not defined in operation parameters", pName)
 		}
 		pyName, err := fieldName(param.Name)
 		if err != nil {
@@ -705,38 +714,73 @@ func buildServiceType(source contract.Type, symbols symbols) (string, typeRefere
 	return typeName, references, nil
 }
 
-func formatPathExpr(path string) string {
-	segments := strings.Split(path, "/")
-	hasInterpolation := false
+func formatPathExpr(path string, pathParamsMap map[string]contract.Parameter) (string, error) {
+	paramNames, err := extractPathParameterNames(path)
+	if err != nil {
+		return "", err
+	}
+	if len(paramNames) == 0 {
+		return strconv.Quote(path), nil
+	}
+
 	var builder strings.Builder
-	for i, seg := range segments {
-		if i > 0 {
-			builder.WriteString("/")
+	lastIndex := 0
+	for {
+		start := strings.IndexByte(path[lastIndex:], '{')
+		if start == -1 {
+			builder.WriteString(path[lastIndex:])
+			break
 		}
-		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
-			hasInterpolation = true
-			paramName := strings.Trim(seg, "{}")
-			pyName, _ := fieldName(paramName)
-			builder.WriteString(fmt.Sprintf("{_quote_path(str(%s), safe='')}", pyName))
-		} else {
-			builder.WriteString(seg)
+		start += lastIndex
+		end := strings.IndexByte(path[start:], '}')
+		if end == -1 {
+			return "", fmt.Errorf("unclosed placeholder in path %q", path)
 		}
+		end += start
+		builder.WriteString(path[lastIndex:start])
+
+		paramName := path[start+1 : end]
+		param, found := pathParamsMap[paramName]
+		if !found {
+			return "", fmt.Errorf("path parameter %q is not defined in operation parameters", paramName)
+		}
+		pyName, err := fieldName(param.Name)
+		if err != nil {
+			return "", err
+		}
+		builder.WriteString(fmt.Sprintf("{_quote_path(str(%s), safe='')}", pyName))
+		lastIndex = end + 1
 	}
-	if hasInterpolation {
-		return fmt.Sprintf("f%q", builder.String())
-	}
-	return strconv.Quote(path)
+
+	return fmt.Sprintf("f%q", builder.String()), nil
 }
 
-func extractPathParameterNames(path string) []string {
+func extractPathParameterNames(path string) ([]string, error) {
 	var names []string
-	segments := strings.Split(path, "/")
-	for _, seg := range segments {
-		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
-			names = append(names, strings.Trim(seg, "{}"))
+	seen := make(map[string]struct{})
+	i := 0
+	for i < len(path) {
+		start := strings.IndexByte(path[i:], '{')
+		if start == -1 {
+			break
 		}
+		start += i
+		end := strings.IndexByte(path[start:], '}')
+		if end == -1 {
+			return nil, fmt.Errorf("unclosed placeholder in path %q", path)
+		}
+		end += start
+		paramName := path[start+1 : end]
+		if paramName == "" {
+			return nil, fmt.Errorf("empty placeholder in path %q", path)
+		}
+		if _, exists := seen[paramName]; !exists {
+			seen[paramName] = struct{}{}
+			names = append(names, paramName)
+		}
+		i = end + 1
 	}
-	return names
+	return names, nil
 }
 
 func enumModuleImports(enums []Enum) []Import {
@@ -780,10 +824,17 @@ func typeModuleImports(dependencies typeReferences) []Import {
 	if dependencies.usesAny {
 		names = append([]string{"Any"}, names...)
 	}
-	return []Import{
+	imports := []Import{
 		{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}},
 		{Group: ImportStandard, Module: "typing", Names: names},
 	}
+	if enumNames := dependencies.enumNames(); len(enumNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: enumNames})
+	}
+	if modelNames := dependencies.modelNames(); len(modelNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: modelNames})
+	}
+	return imports
 }
 
 func serviceModuleImports(refs typeReferences) []Import {

@@ -1,6 +1,6 @@
 module github.com/hoxger/hostero-sdk
 
-go 1.26.1
+go 1.26
 
 require (
 	github.com/getkin/kin-openapi v0.149.0
