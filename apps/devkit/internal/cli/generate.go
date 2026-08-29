@@ -6,10 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
 	python "github.com/hoxger/hostero-sdk/apps/devkit/internal/generator/python"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 	"github.com/spf13/cobra"
 )
 
@@ -28,36 +25,24 @@ func runGenerate(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
-	file, err := config.Load(filepath.Join(workingDirectory, config.FileName))
-	if err != nil {
-		return err
-	}
-	sourceDocument, err := source.Resolve(workingDirectory, file.OpenAPI)
-	if err != nil {
-		return err
-	}
-	parsed, err := openapi.Parse(sourceDocument)
-	if err != nil {
-		return err
-	}
-	contractDocument, err := contract.Build(parsed)
+	pinned, err := loadPinnedContract(workingDirectory)
 	if err != nil {
 		return err
 	}
 
-	for _, target := range file.Targets {
+	for _, target := range pinned.Configuration.Targets {
 		if target.Language != config.LanguagePython {
 			return fmt.Errorf("generate target language %q is not supported", target.Language)
 		}
-		pythonDocument, err := python.Build(contractDocument)
+		pythonDocument, err := python.Build(pinned.Contract)
 		if err != nil {
 			return fmt.Errorf("build Python SDK: %w", err)
 		}
 		files, err := python.Render(pythonDocument, python.GenerationMetadata{
 			DevKitVersion: cmd.Root().Version,
-			OpenAPIPath:   file.OpenAPI.Source.Path,
-			Release:       sourceDocument.Release,
-			SHA256:        sourceDocument.SHA256,
+			OpenAPIPath:   pinned.Configuration.OpenAPI.Source.Path,
+			Release:       pinned.Source.Release,
+			SHA256:        pinned.Source.SHA256,
 		})
 		if err != nil {
 			return fmt.Errorf("render Python SDK: %w", err)

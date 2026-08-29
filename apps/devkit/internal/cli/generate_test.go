@@ -30,6 +30,9 @@ func TestGenerateCreatesCompilablePythonSources(t *testing.T) {
 	if err := initCommand.Execute(); err != nil {
 		t.Fatalf("run init: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(workingDirectory, "hostero.devkit.lock.yaml")); err != nil {
+		t.Fatalf("inspect generated lockfile: %v", err)
+	}
 
 	var generateOutput bytes.Buffer
 	generateCommand := NewRootCommand("test", strings.NewReader(""), &generateOutput, &bytes.Buffer{})

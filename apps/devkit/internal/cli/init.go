@@ -11,6 +11,8 @@ import (
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/lock"
+	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +33,10 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	configPath := filepath.Join(workingDirectory, config.FileName)
 	if err := ensureNewFile(configPath, config.FileName); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(workingDirectory, lock.FileName)
+	if err := ensureNewFile(lockPath, lock.FileName); err != nil {
 		return err
 	}
 
@@ -54,16 +60,29 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	if err := writeFixture(fixturePath, bootstrap.OpenAPI()); err != nil {
 		return err
 	}
-	if err := config.WriteNew(configPath, config.New(target)); err != nil {
+	configuration := config.New(target)
+	if err := config.WriteNew(configPath, configuration); err != nil {
+		_ = os.Remove(fixturePath)
+		return err
+	}
+	sourceDocument, err := source.Resolve(workingDirectory, configuration.OpenAPI)
+	if err != nil {
+		_ = os.Remove(configPath)
+		_ = os.Remove(fixturePath)
+		return err
+	}
+	if err := lock.WriteNew(lockPath, lock.New(sourceDocument)); err != nil {
+		_ = os.Remove(configPath)
 		_ = os.Remove(fixturePath)
 		return err
 	}
 
 	fmt.Fprintf(
 		writer,
-		"\nCreated %s\nCreated %s\n\nNext: hostero-devkit generate\n",
+		"\nCreated %s\nCreated %s\nCreated %s\n\nNext: hostero-devkit generate\n",
 		config.FileName,
 		bootstrap.OpenAPIPath,
+		lock.FileName,
 	)
 	return nil
 }

@@ -1,0 +1,4 @@
+version: 1
+openapi:
+  release: mvp
+  sha256: 03c46244b097e10690b86591c5619747855cc1a6cb7f76214c99daeb8648f4d4

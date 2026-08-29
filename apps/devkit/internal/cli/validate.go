@@ -3,12 +3,8 @@ package cli
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/hoxger/hostero-sdk/apps/devkit/internal/config"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/contract"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/openapi"
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/source"
 	"github.com/spf13/cobra"
 )
 
@@ -27,19 +23,8 @@ func runValidate(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("get current directory: %w", err)
 	}
 
-	file, err := config.Load(filepath.Join(workingDirectory, config.FileName))
+	pinned, err := loadPinnedContract(workingDirectory)
 	if err != nil {
-		return err
-	}
-	document, err := source.Resolve(workingDirectory, file.OpenAPI)
-	if err != nil {
-		return err
-	}
-	parsed, err := openapi.Parse(document)
-	if err != nil {
-		return err
-	}
-	if _, err := contract.Build(parsed); err != nil {
 		return err
 	}
 
@@ -47,8 +32,8 @@ func runValidate(cmd *cobra.Command, _ []string) error {
 		cmd.OutOrStdout(),
 		"Valid %s (release %s, sha256 %s)\n",
 		config.FileName,
-		document.Release,
-		document.SHA256[:12],
+		pinned.Source.Release,
+		pinned.Source.SHA256[:12],
 	)
 	return nil
 }
