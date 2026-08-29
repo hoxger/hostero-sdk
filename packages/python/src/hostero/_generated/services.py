@@ -117,6 +117,13 @@ class GameFeaturesMinecraftInstallerService:
     def list_engines(
         self, *, region_id: str, variant_id: str
     ) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft Installer Engines.
+
+        List Minecraft engines live from MCJars for the selected offer variant.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = "/game-features/minecraft-server-installer/catalog/engines"
         params = _filter_none(
             {
@@ -143,6 +150,13 @@ class GameFeaturesMinecraftInstallerService:
         search: str | None = None,
         variant_id: str,
     ) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft Installer Versions.
+
+        List compatible versions for the specified engine.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = f"/game-features/minecraft-server-installer/catalog/engines/{_quote_path(str(engine), safe='')}/versions"
         params = _filter_none(
             {
@@ -171,6 +185,13 @@ class GameFeaturesMinecraftInstallerService:
         region_id: str,
         variant_id: str,
     ) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft Installer Builds.
+
+        List compatible builds for the specified engine and version.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = f"/game-features/minecraft-server-installer/catalog/engines/{_quote_path(str(engine), safe='')}/versions/{_quote_path(str(version), safe='')}/builds"
         params = _filter_none(
             {
@@ -201,6 +222,13 @@ class GamesOffersService:
         self._client: Any = client
 
     def list(self, game_id: str) -> builtins.list[GameOfferListingResource]:
+        """List Active Offers.
+
+        List active offers for a game, sorted by sort_order.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = f"/games/{_quote_path(str(game_id), safe='')}/offers"
         response = self._client._request(
             "GET",
@@ -223,6 +251,13 @@ class OrderGamesService:
     def list(
         self, *, limit: int | None = None, offset: int | None = None, region_id: str
     ) -> builtins.list[GameCatalogListItemResource]:
+        """List Game Server Catalog.
+
+        List active game-server catalog entries with at least one active offer.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = "/order/game-servers"
         params = _filter_none(
             {
@@ -244,6 +279,13 @@ class OrderGamesService:
     def list_regions(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> builtins.list[RegionResource]:
+        """List Game Server Order Regions.
+
+        List regions selectable in the game-server order flow.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = "/order/game-servers/regions"
         params = _filter_none(
             {
@@ -260,6 +302,13 @@ class OrderGamesService:
         return [RegionResource._from_dict(item) for item in response.json()]
 
     def get(self, game_slug: str, *, region_id: str) -> GameCatalogDetailResource:
+        """Get Game Server Catalog Detail.
+
+        Return active game details and active offers for the order catalog.
+
+        Required permissions:
+            - `catalog.read`
+        """
         path = f"/order/game-servers/{_quote_path(str(game_slug), safe='')}"
         params = _filter_none(
             {
@@ -297,6 +346,11 @@ class ServersActivityService:
         sort: str | None = None,
         to_date: str | None = None,
     ) -> PaginatedResponseGameServerActivityResource:
+        """List Game Server Activity.
+
+        Required permissions:
+            - `game_servers.activity.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/activity"
         params = _filter_none(
             {
@@ -323,6 +377,13 @@ class ServersAllocationsService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[CustomerGameAllocationResource]:
+        """List Server Allocations.
+
+        List network endpoints visible to the authenticated server member.
+
+        Required permissions:
+            - `game_servers.allocations.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/allocations"
         response = self._client._request(
             "GET",
@@ -341,6 +402,11 @@ class ServersBackupsRestoresService:
     def get_active(
         self, server_id: str
     ) -> GameServerBackupRestoreProgressResource | None:
+        """Get Active Restore.
+
+        Required permissions:
+            - `game_servers.view`
+        """
         path = (
             f"/servers/{_quote_path(str(server_id), safe='')}/backups/restores/active"
         )
@@ -356,8 +422,13 @@ class ServersBackupsRestoresService:
         server_id: str,
         backup_id: str,
         *,
-        body: GameServerBackupRestoreRequest | dict[str, Any] | dict[str, Any],
+        body: GameServerBackupRestoreRequest | dict[str, Any],
     ) -> dict[str, str]:
+        """Restore Backup.
+
+        Required permissions:
+            - `game_servers.backups.restore`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups/{_quote_path(str(backup_id), safe='')}/restore"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -375,6 +446,11 @@ class ServersBackupsService:
         self.restores = ServersBackupsRestoresService(client)
 
     def list(self, server_id: str) -> builtins.list[GameServerBackupResource]:
+        """List Backups.
+
+        Required permissions:
+            - `game_servers.backups.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups"
         response = self._client._request(
             "GET",
@@ -387,13 +463,13 @@ class ServersBackupsService:
         self,
         server_id: str,
         *,
-        body: GameServerBackupCreateRequest
-        | None
-        | dict[str, Any]
-        | None
-        | dict[str, Any]
-        | None = None,
+        body: GameServerBackupCreateRequest | None | dict[str, Any] | None = None,
     ) -> GameServerBackupResource:
+        """Create Backup.
+
+        Required permissions:
+            - `game_servers.backups.create`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -405,6 +481,11 @@ class ServersBackupsService:
         return GameServerBackupResource._from_dict(response.json())
 
     def get_settings(self, server_id: str) -> GameServerBackupSettingsResource:
+        """Get Backup Settings.
+
+        Required permissions:
+            - `game_servers.backups.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups/settings"
         response = self._client._request(
             "GET",
@@ -417,8 +498,13 @@ class ServersBackupsService:
         self,
         server_id: str,
         *,
-        body: GameServerBackupSettingsUpdateRequest | dict[str, Any] | dict[str, Any],
+        body: GameServerBackupSettingsUpdateRequest | dict[str, Any],
     ) -> GameServerBackupSettingsResource:
+        """Update Backup Settings.
+
+        Required permissions:
+            - `game_servers.backups.create`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups/settings"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -430,6 +516,11 @@ class ServersBackupsService:
         return GameServerBackupSettingsResource._from_dict(response.json())
 
     def delete(self, server_id: str, backup_id: str) -> None:
+        """Delete Backup.
+
+        Required permissions:
+            - `game_servers.backups.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups/{_quote_path(str(backup_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -441,6 +532,13 @@ class ServersBackupsService:
     def download(
         self, server_id: str, backup_id: str, *, component_id: str
     ) -> RedirectResponse:
+        """Download Backup.
+
+        Redirect an authorized browser to one selected backup component.
+
+        Required permissions:
+            - `game_servers.backups.download`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/backups/{_quote_path(str(backup_id), safe='')}/download"
         params = _filter_none(
             {
@@ -469,6 +567,13 @@ class ServersConsoleService:
         self._client: Any = client
 
     def get_token(self, server_id: str) -> GameServerConsoleTokenResource:
+        """Get Console Token.
+
+        Return a short-lived WebSocket token for the server's console.
+
+        Required permissions:
+            - `game_servers.console.access`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/console/token"
         response = self._client._request(
             "GET",
@@ -483,6 +588,11 @@ class ServersDatabasesService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[GameServerDatabaseListItemResource]:
+        """List Databases.
+
+        Required permissions:
+            - `game_servers.databases.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/databases"
         response = self._client._request(
             "GET",
@@ -495,11 +605,13 @@ class ServersDatabasesService:
         ]
 
     def create(
-        self,
-        server_id: str,
-        *,
-        body: GameServerDatabaseCreateRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: GameServerDatabaseCreateRequest | dict[str, Any]
     ) -> GameServerDatabaseResource:
+        """Create Database.
+
+        Required permissions:
+            - `game_servers.databases.create`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/databases"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -515,8 +627,13 @@ class ServersDatabasesService:
         server_id: str,
         database_id: str,
         *,
-        body: GameServerDatabaseDeleteRequest | dict[str, Any] | dict[str, Any],
+        body: GameServerDatabaseDeleteRequest | dict[str, Any],
     ) -> None:
+        """Delete Database.
+
+        Required permissions:
+            - `game_servers.databases.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/databases/{_quote_path(str(database_id), safe='')}"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -528,6 +645,11 @@ class ServersDatabasesService:
         return None
 
     def get(self, server_id: str, database_id: str) -> GameServerDatabaseResource:
+        """Get Database.
+
+        Required permissions:
+            - `game_servers.databases.credentials.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/databases/{_quote_path(str(database_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -539,6 +661,11 @@ class ServersDatabasesService:
     def reset_password(
         self, server_id: str, database_id: str
     ) -> GameServerDatabaseResource:
+        """Reset Database Password.
+
+        Required permissions:
+            - `game_servers.databases.credentials.reset`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/databases/{_quote_path(str(database_id), safe='')}/password"
         response = self._client._request(
             "POST",
@@ -553,6 +680,11 @@ class ServersDomainService:
         self._client: Any = client
 
     def delete(self, server_id: str) -> None:
+        """Delete Server Domain.
+
+        Required permissions:
+            - `game_servers.domains.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/domain"
         self._client._request(
             "DELETE",
@@ -562,6 +694,11 @@ class ServersDomainService:
         return None
 
     def get(self, server_id: str) -> ServerDomainResource | None:
+        """Get Server Domain.
+
+        Required permissions:
+            - `game_servers.domains.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/domain"
         response = self._client._request(
             "GET",
@@ -573,6 +710,11 @@ class ServersDomainService:
     def list_options(
         self, server_id: str
     ) -> builtins.list[ManagedDomainOptionResource]:
+        """List Server Domain Options.
+
+        Required permissions:
+            - `game_servers.domains.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/domain/options"
         response = self._client._request(
             "GET",
@@ -584,11 +726,13 @@ class ServersDomainService:
         ]
 
     def set_subdomain(
-        self,
-        server_id: str,
-        *,
-        body: ServerSubdomainRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: ServerSubdomainRequest | dict[str, Any]
     ) -> ServerDomainResource:
+        """Set Server Subdomain.
+
+        Required permissions:
+            - `game_servers.domains.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/domain/subdomain"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -605,11 +749,13 @@ class ServersFilesCompressService:
         self._client: Any = client
 
     def create(
-        self,
-        server_id: str,
-        *,
-        body: FileCompressRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileCompressRequest | dict[str, Any]
     ) -> AxonOperationResource:
+        """Compress Files.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/compress"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -626,6 +772,11 @@ class ServersFilesContentsService:
         self._client: Any = client
 
     def get(self, server_id: str, *, file: str) -> FileContentsResource:
+        """Read File Contents.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/contents"
         params = _filter_none(
             {
@@ -641,6 +792,11 @@ class ServersFilesContentsService:
         return FileContentsResource._from_dict(response.json())
 
     def write(self, server_id: str, *, file: str, content: bytes | str) -> None:
+        """Write File Contents.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/contents"
         params = _filter_none(
             {
@@ -663,11 +819,13 @@ class ServersFilesDecompressService:
         self._client: Any = client
 
     def create(
-        self,
-        server_id: str,
-        *,
-        body: FileDecompressRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileDecompressRequest | dict[str, Any]
     ) -> AxonOperationResource:
+        """Decompress File.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/decompress"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -679,6 +837,11 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def get_active(self, server_id: str) -> AxonOperationResource | None:
+        """Get Active Decompress Operation.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = (
             f"/servers/{_quote_path(str(server_id), safe='')}/files/decompress/active"
         )
@@ -690,6 +853,11 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def get(self, server_id: str, operation_id: str) -> AxonOperationResource:
+        """Get Decompress Operation.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/decompress/{_quote_path(str(operation_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -699,6 +867,11 @@ class ServersFilesDecompressService:
         return AxonOperationResource._from_dict(response.json())
 
     def cancel(self, server_id: str, operation_id: str) -> AxonOperationResource:
+        """Cancel Decompress Operation.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/decompress/{_quote_path(str(operation_id), safe='')}/cancel"
         response = self._client._request(
             "POST",
@@ -732,6 +905,11 @@ class ServersFilesSearchService:
         sort_desc: bool | None = None,
         type: str | None = None,
     ) -> FileSearchResource:
+        """Search Files.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/search"
         params = _filter_none(
             {
@@ -761,6 +939,11 @@ class ServersFilesSearchService:
         return FileSearchResource._from_dict(response.json())
 
     def cancel(self, server_id: str, search_id: str) -> None:
+        """Cancel File Search.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/search/{_quote_path(str(search_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -788,6 +971,11 @@ class ServersFilesService:
         sort: str | None = None,
         sort_desc: bool | None = None,
     ) -> FileListResource:
+        """List Files.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files"
         params = _filter_none(
             {
@@ -807,11 +995,13 @@ class ServersFilesService:
         return FileListResource._from_dict(response.json())
 
     def delete(
-        self,
-        server_id: str,
-        *,
-        body: FileDeleteRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileDeleteRequest | dict[str, Any]
     ) -> None:
+        """Delete Files.
+
+        Required permissions:
+            - `game_servers.files.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/delete"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -823,11 +1013,13 @@ class ServersFilesService:
         return None
 
     def create_directories(
-        self,
-        server_id: str,
-        *,
-        body: FileCreateDirectoriesRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileCreateDirectoriesRequest | dict[str, Any]
     ) -> None:
+        """Create Directories.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/directories"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -839,11 +1031,13 @@ class ServersFilesService:
         return None
 
     def create_directory(
-        self,
-        server_id: str,
-        *,
-        body: FileCreateDirectoryRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileCreateDirectoryRequest | dict[str, Any]
     ) -> None:
+        """Create Directory.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/directory"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -855,6 +1049,11 @@ class ServersFilesService:
         return None
 
     def get_download_url(self, server_id: str, *, file: str) -> FileUrlResource:
+        """Get Download Url.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/download-url"
         params = _filter_none(
             {
@@ -870,11 +1069,13 @@ class ServersFilesService:
         return FileUrlResource._from_dict(response.json())
 
     def rename(
-        self,
-        server_id: str,
-        *,
-        body: FileRenameRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: FileRenameRequest | dict[str, Any]
     ) -> None:
+        """Rename File.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/files/rename"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -891,8 +1092,13 @@ class ServersFoldersService:
         self._client: Any = client
 
     def create(
-        self, *, body: GameServerFolderCreateRequest | dict[str, Any] | dict[str, Any]
+        self, *, body: GameServerFolderCreateRequest | dict[str, Any]
     ) -> GameServerFolderResource:
+        """Create Folder.
+
+        Required permissions:
+            - `game_servers.folders.manage`
+        """
         path = "/servers/folders"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -904,6 +1110,11 @@ class ServersFoldersService:
         return GameServerFolderResource._from_dict(response.json())
 
     def get_tree(self) -> GameServerSidebarTreeResource:
+        """Get Folder Tree.
+
+        Required permissions:
+            - `game_servers.folders.view`
+        """
         path = "/servers/folders/tree"
         response = self._client._request(
             "GET",
@@ -913,6 +1124,11 @@ class ServersFoldersService:
         return GameServerSidebarTreeResource._from_dict(response.json())
 
     def delete(self, folder_id: str) -> None:
+        """Delete Folder.
+
+        Required permissions:
+            - `game_servers.folders.manage`
+        """
         path = f"/servers/folders/{_quote_path(str(folder_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -922,11 +1138,13 @@ class ServersFoldersService:
         return None
 
     def update(
-        self,
-        folder_id: str,
-        *,
-        body: GameServerFolderUpdateRequest | dict[str, Any] | dict[str, Any],
+        self, folder_id: str, *, body: GameServerFolderUpdateRequest | dict[str, Any]
     ) -> GameServerFolderResource:
+        """Update Folder.
+
+        Required permissions:
+            - `game_servers.folders.manage`
+        """
         path = f"/servers/folders/{_quote_path(str(folder_id), safe='')}"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -938,6 +1156,11 @@ class ServersFoldersService:
         return GameServerFolderResource._from_dict(response.json())
 
     def remove_server(self, folder_id: str, server_id: str) -> None:
+        """Remove Server From Folder.
+
+        Required permissions:
+            - `game_servers.folders.manage`
+        """
         path = f"/servers/folders/{_quote_path(str(folder_id), safe='')}/servers/{_quote_path(str(server_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -947,6 +1170,11 @@ class ServersFoldersService:
         return None
 
     def add_server(self, folder_id: str, server_id: str) -> None:
+        """Assign Server To Folder.
+
+        Required permissions:
+            - `game_servers.folders.manage`
+        """
         path = f"/servers/folders/{_quote_path(str(folder_id), safe='')}/servers/{_quote_path(str(server_id), safe='')}"
         self._client._request(
             "POST",
@@ -961,6 +1189,11 @@ class ServersInvitesService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[ServerInviteResource]:
+        """List Server Invites.
+
+        Required permissions:
+            - `game_servers.subusers.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/invites"
         response = self._client._request(
             "GET",
@@ -970,11 +1203,13 @@ class ServersInvitesService:
         return [ServerInviteResource._from_dict(item) for item in response.json()]
 
     def create(
-        self,
-        server_id: str,
-        *,
-        body: GameServerInviteCreateRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: GameServerInviteCreateRequest | dict[str, Any]
     ) -> ServerInviteResource:
+        """Create Server Invite.
+
+        Required permissions:
+            - `game_servers.subusers.create`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/invites"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -986,6 +1221,11 @@ class ServersInvitesService:
         return ServerInviteResource._from_dict(response.json())
 
     def delete(self, server_id: str, invite_id: str) -> None:
+        """Revoke Server Invite.
+
+        Required permissions:
+            - `game_servers.subusers.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/invites/{_quote_path(str(invite_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -1000,6 +1240,13 @@ class ServersMinecraftInstallerService:
         self._client: Any = client
 
     def list_engines(self, server_id: str) -> builtins.list[JsonObjectOutput]:
+        """List Server Minecraft Installer Engines.
+
+        List Minecraft engines available for this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/features/minecraft-server-installer/catalog/engines"
         response = self._client._request(
             "GET",
@@ -1018,6 +1265,13 @@ class ServersMinecraftInstallerService:
         include_archived: bool | None = None,
         search: str | None = None,
     ) -> builtins.list[JsonObjectOutput]:
+        """List Server Minecraft Installer Versions.
+
+        List Minecraft versions compatible with this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/features/minecraft-server-installer/catalog/engines/{_quote_path(str(engine), safe='')}/versions"
         params = _filter_none(
             {
@@ -1043,6 +1297,13 @@ class ServersMinecraftInstallerService:
         *,
         include_archived: bool | None = None,
     ) -> builtins.list[JsonObjectOutput]:
+        """List Server Minecraft Installer Builds.
+
+        List Minecraft builds compatible with this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/features/minecraft-server-installer/catalog/engines/{_quote_path(str(engine), safe='')}/versions/{_quote_path(str(version), safe='')}/builds"
         params = _filter_none(
             {
@@ -1063,8 +1324,13 @@ class ServersMinecraftInstallerService:
         self,
         server_id: str,
         *,
-        body: MinecraftInstallerReinstallRequest | dict[str, Any] | dict[str, Any],
+        body: MinecraftInstallerReinstallRequest | dict[str, Any],
     ) -> None:
+        """Reinstall Minecraft Server.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/features/minecraft-server-installer/reinstall"
         json_payload = _serialize_body(body)
         self._client._request(
@@ -1085,6 +1351,11 @@ class ServersOperationsService:
     def list(
         self, server_id: str, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseAxonOperationResource:
+        """List Operations.
+
+        Required permissions:
+            - `game_servers.operations.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/operations"
         params = _filter_none(
             {
@@ -1101,6 +1372,11 @@ class ServersOperationsService:
         return PaginatedResponseAxonOperationResource._from_dict(response.json())
 
     def get(self, server_id: str, operation_id: str) -> AxonOperationResource:
+        """Get Operation.
+
+        Required permissions:
+            - `game_servers.operations.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/operations/{_quote_path(str(operation_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -1110,6 +1386,11 @@ class ServersOperationsService:
         return AxonOperationResource._from_dict(response.json())
 
     def cancel(self, server_id: str, operation_id: str) -> AxonOperationResource:
+        """Cancel Operation.
+
+        Required permissions:
+            - `game_servers.operations.cancel`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/operations/{_quote_path(str(operation_id), safe='')}/cancel"
         response = self._client._request(
             "POST",
@@ -1124,6 +1405,13 @@ class ServersPowerService:
         self._client: Any = client
 
     def kill(self, server_id: str) -> None:
+        """Kill Game Server.
+
+        Force-kill the game server container.
+
+        Required permissions:
+            - `game_servers.power.kill`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/power/kill"
         self._client._request(
             "POST",
@@ -1133,6 +1421,13 @@ class ServersPowerService:
         return None
 
     def reinstall(self, server_id: str) -> None:
+        """Reinstall Game Server.
+
+        Run the game server installer again without wiping server data.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/power/reinstall"
         self._client._request(
             "POST",
@@ -1142,6 +1437,13 @@ class ServersPowerService:
         return None
 
     def restart(self, server_id: str) -> None:
+        """Restart Game Server.
+
+        Restart the game server container.
+
+        Required permissions:
+            - `game_servers.power.restart`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/power/restart"
         self._client._request(
             "POST",
@@ -1151,6 +1453,13 @@ class ServersPowerService:
         return None
 
     def start(self, server_id: str) -> None:
+        """Start Game Server.
+
+        Start the game server container.
+
+        Required permissions:
+            - `game_servers.power.start`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/power/start"
         self._client._request(
             "POST",
@@ -1160,6 +1469,13 @@ class ServersPowerService:
         return None
 
     def stop(self, server_id: str) -> None:
+        """Stop Game Server.
+
+        Stop the game server container.
+
+        Required permissions:
+            - `game_servers.power.stop`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/power/stop"
         self._client._request(
             "POST",
@@ -1181,6 +1497,11 @@ class ServersSchedulesRunsService:
         limit: int | None = None,
         offset: int | None = None,
     ) -> PaginatedResponseGameServerScheduleRunResource:
+        """List Schedule Runs.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules/{_quote_path(str(schedule_id), safe='')}/runs"
         params = _filter_none(
             {
@@ -1207,6 +1528,11 @@ class ServersSchedulesService:
     def list(
         self, server_id: str, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseGameServerScheduleResource:
+        """List Schedules.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules"
         params = _filter_none(
             {
@@ -1223,11 +1549,13 @@ class ServersSchedulesService:
         return PaginatedResponseGameServerScheduleResource._from_dict(response.json())
 
     def create(
-        self,
-        server_id: str,
-        *,
-        body: GameServerScheduleCreateRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: GameServerScheduleCreateRequest | dict[str, Any]
     ) -> GameServerScheduleResource:
+        """Create Schedule.
+
+        Required permissions:
+            - `game_servers.schedules.create`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1239,6 +1567,11 @@ class ServersSchedulesService:
         return GameServerScheduleResource._from_dict(response.json())
 
     def delete(self, server_id: str, schedule_id: str) -> None:
+        """Delete Schedule.
+
+        Required permissions:
+            - `game_servers.schedules.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules/{_quote_path(str(schedule_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -1248,6 +1581,11 @@ class ServersSchedulesService:
         return None
 
     def get(self, server_id: str, schedule_id: str) -> GameServerScheduleResource:
+        """Get Schedule.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules/{_quote_path(str(schedule_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -1261,8 +1599,13 @@ class ServersSchedulesService:
         server_id: str,
         schedule_id: str,
         *,
-        body: GameServerScheduleUpdateRequest | dict[str, Any] | dict[str, Any],
+        body: GameServerScheduleUpdateRequest | dict[str, Any],
     ) -> GameServerScheduleResource:
+        """Update Schedule.
+
+        Required permissions:
+            - `game_servers.schedules.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules/{_quote_path(str(schedule_id), safe='')}"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1274,6 +1617,11 @@ class ServersSchedulesService:
         return GameServerScheduleResource._from_dict(response.json())
 
     def run(self, server_id: str, schedule_id: str) -> GameServerScheduleRunResource:
+        """Run Schedule.
+
+        Required permissions:
+            - `game_servers.schedules.run`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/schedules/{_quote_path(str(schedule_id), safe='')}/run"
         response = self._client._request(
             "POST",
@@ -1288,6 +1636,11 @@ class ServersSftpService:
         self._client: Any = client
 
     def get_credentials(self, server_id: str) -> GameServerSftpCredentialsResource:
+        """Get Sftp Credentials.
+
+        Required permissions:
+            - `game_servers.sftp.access`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/sftp/credentials"
         response = self._client._request(
             "GET",
@@ -1297,6 +1650,11 @@ class ServersSftpService:
         return GameServerSftpCredentialsResource._from_dict(response.json())
 
     def rotate_credentials(self, server_id: str) -> GameServerSftpCredentialsResource:
+        """Rotate Sftp Credentials.
+
+        Required permissions:
+            - `game_servers.sftp.access`
+        """
         path = (
             f"/servers/{_quote_path(str(server_id), safe='')}/sftp/credentials/rotate"
         )
@@ -1313,6 +1671,13 @@ class ServersStartupService:
         self._client: Any = client
 
     def get(self, server_id: str) -> GameServerStartupSettingsResource:
+        """Get Startup Settings.
+
+        Return startup settings and editable options for a server.
+
+        Required permissions:
+            - `game_servers.startup.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/startup"
         response = self._client._request(
             "GET",
@@ -1322,11 +1687,15 @@ class ServersStartupService:
         return GameServerStartupSettingsResource._from_dict(response.json())
 
     def update(
-        self,
-        server_id: str,
-        *,
-        body: GameServerStartupUpdateRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: GameServerStartupUpdateRequest | dict[str, Any]
     ) -> GameServerStartupSettingsResource:
+        """Update Startup Settings.
+
+        Update user-controlled startup parameters.
+
+        Required permissions:
+            - `game_servers.startup.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/startup"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1343,6 +1712,11 @@ class ServersSubusersService:
         self._client: Any = client
 
     def list(self, server_id: str) -> builtins.list[GameServerSubuserResource]:
+        """List Subusers.
+
+        Required permissions:
+            - `game_servers.subusers.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/subusers"
         response = self._client._request(
             "GET",
@@ -1352,6 +1726,11 @@ class ServersSubusersService:
         return [GameServerSubuserResource._from_dict(item) for item in response.json()]
 
     def delete(self, server_id: str, access_id: str) -> None:
+        """Delete Subuser.
+
+        Required permissions:
+            - `game_servers.subusers.delete`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/subusers/{_quote_path(str(access_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -1365,8 +1744,13 @@ class ServersSubusersService:
         server_id: str,
         access_id: str,
         *,
-        body: GameServerSubuserUpdateRequest | dict[str, Any] | dict[str, Any],
+        body: GameServerSubuserUpdateRequest | dict[str, Any],
     ) -> GameServerSubuserResource:
+        """Update Subuser.
+
+        Required permissions:
+            - `game_servers.subusers.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}/subusers/{_quote_path(str(access_id), safe='')}"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1405,6 +1789,13 @@ class ServersService:
         offset: int | None = None,
         search: str | None = None,
     ) -> PaginatedResponseGameServerListItemResource:
+        """List Game Servers.
+
+        List game servers owned by or shared with the authenticated user.
+
+        Required permissions:
+            - `game_servers.view`
+        """
         path = "/servers"
         params = _filter_none(
             {
@@ -1422,6 +1813,13 @@ class ServersService:
         return PaginatedResponseGameServerListItemResource._from_dict(response.json())
 
     def get_overview(self) -> ServersOverviewResource:
+        """Get Servers Overview.
+
+        Return status counts and a compact preview of owned and shared servers.
+
+        Required permissions:
+            - `game_servers.view`
+        """
         path = "/servers/overview"
         response = self._client._request(
             "GET",
@@ -1431,6 +1829,13 @@ class ServersService:
         return ServersOverviewResource._from_dict(response.json())
 
     def get_usage(self) -> dict[str, GameServerUsageResource | None]:
+        """List Game Servers Usage.
+
+        Live Axon stats for accessible servers with usage permission, keyed by server UUID.
+
+        Required permissions:
+            - `game_servers.usage.view`
+        """
         path = "/servers/usage"
         response = self._client._request(
             "GET",
@@ -1440,6 +1845,13 @@ class ServersService:
         return response.json()
 
     def get(self, server_id: str) -> GameServerDetailResource:
+        """Get Game Server.
+
+        Return a single game server accessible to the authenticated user.
+
+        Required permissions:
+            - `game_servers.view`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -1449,11 +1861,15 @@ class ServersService:
         return GameServerDetailResource._from_dict(response.json())
 
     def update(
-        self,
-        server_id: str,
-        *,
-        body: GameServerUpdateRequest | dict[str, Any] | dict[str, Any],
+        self, server_id: str, *, body: GameServerUpdateRequest | dict[str, Any]
     ) -> GameServerDetailResource:
+        """Update Game Server.
+
+        Update owner-controlled server metadata.
+
+        Required permissions:
+            - `game_servers.settings.update`
+        """
         path = f"/servers/{_quote_path(str(server_id), safe='')}"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1472,6 +1888,13 @@ class TicketsMessagesAttachmentsService:
     def create(
         self, ticket_id: str, message_id: str, *, file: Upload | Any
     ) -> TicketAttachmentResource:
+        """Upload Attachment.
+
+        Upload a file attachment to a message.
+
+        Required permissions:
+            - `tickets.attachments.create`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/messages/{_quote_path(str(message_id), safe='')}/attachments"
         files_payload = _prepare_upload(file)
         response = self._client._request(
@@ -1483,6 +1906,13 @@ class TicketsMessagesAttachmentsService:
         return TicketAttachmentResource._from_dict(response.json())
 
     def delete(self, ticket_id: str, message_id: str, attachment_id: str) -> None:
+        """Delete Attachment.
+
+        Delete an attachment from a ticket message.
+
+        Required permissions:
+            - `tickets.attachments.delete`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/messages/{_quote_path(str(message_id), safe='')}/attachments/{_quote_path(str(attachment_id), safe='')}"
         self._client._request(
             "DELETE",
@@ -1494,6 +1924,13 @@ class TicketsMessagesAttachmentsService:
     def get_url(
         self, ticket_id: str, message_id: str, attachment_id: str
     ) -> dict[str, str]:
+        """Get Attachment Url.
+
+        Return a presigned download URL (valid 1 hour).
+
+        Required permissions:
+            - `tickets.attachments.read`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/messages/{_quote_path(str(message_id), safe='')}/attachments/{_quote_path(str(attachment_id), safe='')}/url"
         response = self._client._request(
             "GET",
@@ -1511,6 +1948,13 @@ class TicketsMessagesService:
     def list(
         self, ticket_id: str, *, before: str | None = None, limit: int | None = None
     ) -> builtins.list[TicketMessageResource]:
+        """List Messages.
+
+        Paginate messages (cursor-based, newest-last).
+
+        Required permissions:
+            - `tickets.read`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/messages"
         params = _filter_none(
             {
@@ -1527,11 +1971,15 @@ class TicketsMessagesService:
         return [TicketMessageResource._from_dict(item) for item in response.json()]
 
     def create(
-        self,
-        ticket_id: str,
-        *,
-        body: TicketMessageCreateRequest | dict[str, Any] | dict[str, Any],
+        self, ticket_id: str, *, body: TicketMessageCreateRequest | dict[str, Any]
     ) -> TicketMessageResource:
+        """Send Message.
+
+        Send a message to the ticket.
+
+        Required permissions:
+            - `tickets.messages.create`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/messages"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1551,6 +1999,13 @@ class TicketsService:
     def list(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> PaginatedResponseTicketResource:
+        """List Tickets.
+
+        List current user's own tickets.
+
+        Required permissions:
+            - `tickets.read`
+        """
         path = "/tickets"
         params = _filter_none(
             {
@@ -1566,9 +2021,14 @@ class TicketsService:
         )
         return PaginatedResponseTicketResource._from_dict(response.json())
 
-    def create(
-        self, *, body: TicketCreateRequest | dict[str, Any] | dict[str, Any]
-    ) -> TicketResource:
+    def create(self, *, body: TicketCreateRequest | dict[str, Any]) -> TicketResource:
+        """Create Ticket.
+
+        Open a new support ticket. Limited to 5 open tickets per user at a time.
+
+        Required permissions:
+            - `tickets.create`
+        """
         path = "/tickets"
         json_payload = _serialize_body(body)
         response = self._client._request(
@@ -1580,6 +2040,13 @@ class TicketsService:
         return TicketResource._from_dict(response.json())
 
     def get_overview(self) -> TicketsOverviewResource:
+        """Get Tickets Overview.
+
+        Return current user's total number of non-terminal tickets.
+
+        Required permissions:
+            - `tickets.read`
+        """
         path = "/tickets/overview"
         response = self._client._request(
             "GET",
@@ -1589,6 +2056,13 @@ class TicketsService:
         return TicketsOverviewResource._from_dict(response.json())
 
     def get(self, ticket_id: str) -> TicketDetailResource:
+        """Get Ticket.
+
+        Get ticket details and participants.
+
+        Required permissions:
+            - `tickets.read`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}"
         response = self._client._request(
             "GET",
@@ -1598,11 +2072,15 @@ class TicketsService:
         return TicketDetailResource._from_dict(response.json())
 
     def update_status(
-        self,
-        ticket_id: str,
-        *,
-        body: TicketStatusUpdateRequest | dict[str, Any] | dict[str, Any],
+        self, ticket_id: str, *, body: TicketStatusUpdateRequest | dict[str, Any]
     ) -> TicketResource:
+        """Update Status.
+
+        Update ticket status.
+
+        Required permissions:
+            - `tickets.status.update`
+        """
         path = f"/tickets/{_quote_path(str(ticket_id), safe='')}/status"
         json_payload = _serialize_body(body)
         response = self._client._request(

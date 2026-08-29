@@ -181,7 +181,7 @@ func buildEnums(source []contract.Enum) ([]Enum, error) {
 		}
 
 		seen := make(map[string]string, len(sourceEnum.Values))
-		enum := Enum{Name: name}
+		enum := Enum{Name: name, Docstring: sourceEnum.Description}
 		for _, value := range sourceEnum.Values {
 			memberName, err := enumMemberName(value)
 			if err != nil {
@@ -263,7 +263,7 @@ func buildModels(source []contract.Model, symbols symbols) ([]Model, modelDepend
 			return nil, modelDependencies{}, fmt.Errorf("model %q has no Python symbol", sourceModel.Name)
 		}
 		seenFields := make(map[string]string, len(sourceModel.Fields))
-		model := Model{Name: name}
+		model := Model{Name: name, Docstring: sourceModel.Description}
 		for _, sourceField := range sourceModel.Fields {
 			field, references, err := buildField(sourceField, symbols)
 			if err != nil {
@@ -425,10 +425,11 @@ func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, 
 			return ServiceMethod{}, typeReferences{}, err
 		}
 		pathParams = append(pathParams, MethodParam{
-			Name:     pyName,
-			JSONName: param.Name,
-			Type:     "str",
-			Required: true,
+			Name:        pyName,
+			JSONName:    param.Name,
+			Description: param.Description,
+			Type:        "str",
+			Required:    true,
 		})
 	}
 
@@ -448,10 +449,11 @@ func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, 
 				pType += " | None"
 			}
 			queryParams = append(queryParams, MethodParam{
-				Name:     pName,
-				JSONName: param.Name,
-				Type:     pType,
-				Required: param.Required,
+				Name:        pName,
+				JSONName:    param.Name,
+				Description: param.Description,
+				Type:        pType,
+				Required:    param.Required,
 			})
 		}
 	}
@@ -515,8 +517,11 @@ func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, 
 		}
 	}
 
+	docstring := buildMethodDocstring(op, pathParams, queryParams, hasBody, isMultipart)
+
 	return ServiceMethod{
 		Name:            name,
+		Docstring:       docstring,
 		OperationID:     op.ID,
 		HTTPMethod:      op.Method,
 		PathExpr:        pathExpr,
@@ -532,6 +537,53 @@ func buildServiceMethod(op contract.Operation, symbols symbols) (ServiceMethod, 
 		IsReturnList:    isReturnList,
 		IsReturnModel:   isReturnModel,
 	}, references, nil
+}
+
+func buildMethodDocstring(op contract.Operation, pathParams []MethodParam, queryParams []MethodParam, hasBody bool, isMultipart bool) string {
+	var sections []string
+
+	title := strings.TrimSpace(op.Summary)
+	if title != "" && !strings.HasSuffix(title, ".") {
+		title += "."
+	}
+	description := strings.TrimSpace(op.Description)
+	if description != "" && !strings.HasSuffix(description, ".") {
+		description += "."
+	}
+
+	if title != "" && description != "" && title != description {
+		sections = append(sections, fmt.Sprintf("%s\n\n%s", title, description))
+	} else if title != "" {
+		sections = append(sections, title)
+	} else if description != "" {
+		sections = append(sections, description)
+	}
+
+	if len(op.Permissions) > 0 {
+		var permLines []string
+		permLines = append(permLines, "Required permissions:")
+		for _, perm := range op.Permissions {
+			permLines = append(permLines, fmt.Sprintf("    - `%s`", perm))
+		}
+		sections = append(sections, strings.Join(permLines, "\n"))
+	}
+
+	var argLines []string
+	for _, p := range pathParams {
+		if p.Description != "" {
+			argLines = append(argLines, fmt.Sprintf("    %s: %s", p.Name, p.Description))
+		}
+	}
+	for _, q := range queryParams {
+		if q.Description != "" {
+			argLines = append(argLines, fmt.Sprintf("    %s: %s", q.Name, q.Description))
+		}
+	}
+	if len(argLines) > 0 {
+		sections = append(sections, "Args:\n"+strings.Join(argLines, "\n"))
+	}
+
+	return strings.Join(sections, "\n\n")
 }
 
 func buildServiceType(source contract.Type, symbols symbols) (string, typeReferences, error) {

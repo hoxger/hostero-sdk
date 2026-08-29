@@ -130,6 +130,8 @@ class BodyUploadAttachmentV1TicketsTicketIdMessagesMessageIdAttachmentsPost:
 
 @dataclass(kw_only=True)
 class CustomerGameAllocationResource:
+    """Assigned endpoint fields that are relevant to a server owner."""
+
     allocation_type: str
     id: str
     ip: str
@@ -163,6 +165,8 @@ class CustomerGameAllocationResource:
 
 @dataclass(kw_only=True)
 class ErrorResponse:
+    """Generic error body returned by Hostero API exception handlers."""
+
     code: str
     detail: Any | None = None
 
@@ -582,6 +586,8 @@ class GameCatalogListItemResource:
 
 @dataclass(kw_only=True)
 class GameOfferCellOptionResource:
+    """A customer-facing runtime environment available for an offer variant."""
+
     description: str | None = None
     description_key: str | None = None
     id: str
@@ -640,6 +646,8 @@ class GameOfferFeatureResource:
 
 @dataclass(kw_only=True)
 class GameOfferListingResource:
+    """Authenticated catalog view"""
+
     additional_allocation_pricing: int | None = None
     additional_backup_pricing: int | None = None
     allowed_additional_allocations: int | None = None
@@ -884,6 +892,8 @@ class GameServerBackupComponentResource:
 
 @dataclass(kw_only=True)
 class GameServerBackupCreateRequest:
+    """Starts an on-demand backup for a server."""
+
     include_databases: bool | None = None
     name: str | None = None
 
@@ -905,6 +915,8 @@ class GameServerBackupCreateRequest:
 
 @dataclass(kw_only=True)
 class GameServerBackupResource:
+    """A backup belonging to the current server."""
+
     checksum: str | None = None
     completed_at: str | None = None
     components: list[GameServerBackupComponentResource]
@@ -961,6 +973,8 @@ class GameServerBackupResource:
 
 @dataclass(kw_only=True)
 class GameServerBackupRestoreProgressResource:
+    """The active restore operation shown on the server page."""
+
     backup_id: str
     estimated_seconds_remaining: int | None = None
     files_processed: int
@@ -1061,6 +1075,8 @@ class GameServerBackupRestoreRequest:
 
 @dataclass(kw_only=True)
 class GameServerBackupSettingsResource:
+    """Glob patterns excluded from a server's future backups."""
+
     exclude_patterns: list[str]
 
     @classmethod
@@ -1078,6 +1094,8 @@ class GameServerBackupSettingsResource:
 
 @dataclass(kw_only=True)
 class GameServerBackupSettingsUpdateRequest:
+    """Backup settings stored on the server and sent to Axon for each backup."""
+
     exclude_patterns: list[str] | None = None
 
     @classmethod
@@ -1097,6 +1115,8 @@ class GameServerBackupSettingsUpdateRequest:
 
 @dataclass(kw_only=True)
 class GameServerCellSummaryResource:
+    """Cell (engine template) identity."""
+
     name: str
     name_key: str | None = None
     slug: str
@@ -1122,6 +1142,8 @@ class GameServerCellSummaryResource:
 
 @dataclass(kw_only=True)
 class GameServerConsoleTokenResource:
+    """Console WebSocket token for direct Axon connection."""
+
     expires_at: int
     token: str
     ws_url: str
@@ -1185,6 +1207,8 @@ class GameServerDatabaseDeleteRequest:
 
 @dataclass(kw_only=True)
 class GameServerDatabaseListItemResource:
+    """Database metadata safe to retain in the regular list response."""
+
     allowed_connections: str
     created_at: str
     database: str
@@ -1279,6 +1303,8 @@ class GameServerDatabaseResource:
 
 @dataclass(kw_only=True)
 class GameServerDetailResource:
+    """Owner-facing server: identity, infra context, primary bind, billing, limits."""
+
     auto_renew: bool
     availability: ServerAvailability | None = None
     billing_currency: str | None = None
@@ -1420,6 +1446,8 @@ class GameServerDetailResource:
 
 @dataclass(kw_only=True)
 class GameServerFeatureResource:
+    """Operational feature configured for this exact server."""
+
     configuration: JsonObjectOutput
     key: str
 
@@ -1462,6 +1490,8 @@ class GameServerFolderCreateRequest:
 
 @dataclass(kw_only=True)
 class GameServerFolderResource:
+    """Single folder resource returned after create/update."""
+
     id: str
     name: str
     parent_id: str | None = None
@@ -1516,6 +1546,8 @@ class GameServerFolderUpdateRequest:
 
 @dataclass(kw_only=True)
 class GameServerGameSummaryResource:
+    """Game identity for server detail (cell carries engine/template identity)."""
+
     id: str
     name: str
     slug: str
@@ -1562,6 +1594,8 @@ class GameServerInviteCreateRequest:
 
 @dataclass(kw_only=True)
 class GameServerLimitsResource:
+    """Resource limits for the owner's server view."""
+
     cpu: int
     disk_mb: int
     max_allocations: int
@@ -1603,6 +1637,8 @@ class GameServerLimitsResource:
 
 @dataclass(kw_only=True)
 class GameServerListItemResource:
+    """Owner server list row."""
+
     expires_at: str | None = None
     game_name: str
     id: str
@@ -1666,6 +1702,8 @@ class GameServerListItemResource:
 
 @dataclass(kw_only=True)
 class GameServerListLimitsResource:
+    """Limits on list view."""
+
     cpu: int
     disk_mb: int
     max_allocations: int
@@ -1703,6 +1741,8 @@ class GameServerListLimitsResource:
 
 @dataclass(kw_only=True)
 class GameServerListPrimaryResource:
+    """Primary bind address for list rows."""
+
     ip: str
     port: int
     protocol: AllocationProtocol
@@ -1728,6 +1768,8 @@ class GameServerListPrimaryResource:
 
 @dataclass(kw_only=True)
 class GameServerNodeSummaryResource:
+    """Hosting node display name (no internal connectivity fields)."""
+
     name: str
 
     @classmethod
@@ -1745,6 +1787,8 @@ class GameServerNodeSummaryResource:
 
 @dataclass(kw_only=True)
 class GameServerOfferSummaryResource:
+    """Offer associated with a server, without internal pricing details."""
+
     id: str
     name: str
 
@@ -1766,6 +1810,8 @@ class GameServerOfferSummaryResource:
 
 @dataclass(kw_only=True)
 class GameServerOperationProgressResource:
+    """The latest active operation progress reported by the server node."""
+
     attempt_id: str | None = None
     estimated_seconds_remaining: int | None = None
     operation: str
@@ -2257,6 +2303,8 @@ class GameServerSftpRuleResource:
 
 @dataclass(kw_only=True)
 class GameServerSidebarFolderChildResource:
+    """Second-level folder node with assigned servers."""
+
     id: str
     name: str
     position: int
@@ -2290,6 +2338,8 @@ class GameServerSidebarFolderChildResource:
 
 @dataclass(kw_only=True)
 class GameServerSidebarFolderResource:
+    """Top-level folder node with direct servers and one subfolder level."""
+
     children: list[GameServerSidebarFolderChildResource]
     id: str
     name: str
@@ -2328,6 +2378,8 @@ class GameServerSidebarFolderResource:
 
 @dataclass(kw_only=True)
 class GameServerSidebarServerItem:
+    """Server node used in sidebar folder tree."""
+
     id: str
     name: str
     short_id: str
@@ -2353,6 +2405,8 @@ class GameServerSidebarServerItem:
 
 @dataclass(kw_only=True)
 class GameServerSidebarTreeResource:
+    """Sidebar tree payload: root servers and nested folders."""
+
     folders: list[GameServerSidebarFolderResource]
     root_servers: list[GameServerSidebarServerItem]
 
@@ -2670,6 +2724,8 @@ class GameServerUpdateRequest:
 
 @dataclass(kw_only=True)
 class GameServerUsageResource:
+    """Per-container metrics from Axon."""
+
     cpu_percent: float
     disk_bytes: int | None = None
     memory_bytes: int
@@ -3072,6 +3128,8 @@ class ServerInviteResource:
 
 @dataclass(kw_only=True)
 class ServerOverviewItemResource:
+    """Minimal server row rendered in the dashboard overview."""
+
     id: str
     name: str
     short_id: str
@@ -3122,6 +3180,8 @@ class ServerSubdomainRequest:
 
 @dataclass(kw_only=True)
 class ServersOverviewResource:
+    """Counts and a small preview of servers the user owns or can access."""
+
     items: list[ServerOverviewItemResource]
     running: int
     stopped: int
@@ -3486,6 +3546,8 @@ class TicketStatusUpdateRequest:
 
 @dataclass(kw_only=True)
 class TicketsOverviewResource:
+    """Current user's non-terminal support-ticket count."""
+
     open: int
 
     @classmethod
@@ -3503,6 +3565,8 @@ class TicketsOverviewResource:
 
 @dataclass(kw_only=True)
 class ValidationErrorDetail:
+    """Single field error from validation (422)."""
+
     code: str
     ctx: dict[str, Any] | None = None
     field: str | None = None
@@ -3528,6 +3592,8 @@ class ValidationErrorDetail:
 
 @dataclass(kw_only=True)
 class ValidationErrorResponse:
+    """Body returned on 422 Unprocessable Entity (request validation)."""
+
     code: str | None = None
     detail: list[ValidationErrorDetail] | None = None
 

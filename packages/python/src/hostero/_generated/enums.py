@@ -125,6 +125,8 @@ class ScheduleStepType(str, Enum):
 
 
 class ServerAvailability(str, Enum):
+    """Customer-facing availability of a game-server control surface."""
+
     AVAILABLE = "available"
     NODE_MAINTENANCE = "node_maintenance"
     NODE_UNREACHABLE = "node_unreachable"

@@ -27,24 +27,28 @@ type Document struct {
 }
 
 type Model struct {
-	Name   string
-	Fields []Field
+	Name        string
+	Description string
+	Fields      []Field
 }
 
 type Field struct {
-	Name     string
-	Required bool
-	Type     Type
+	Name        string
+	Description string
+	Required    bool
+	Type        Type
 }
 
 type Enum struct {
-	Name   string
-	Values []string
+	Name        string
+	Description string
+	Values      []string
 }
 
 type Alias struct {
-	Name string
-	Type Type
+	Name        string
+	Description string
+	Type        Type
 }
 
 type Type struct {
@@ -74,6 +78,8 @@ type Operation struct {
 	ID             string
 	Method         string
 	Path           string
+	Summary        string
+	Description    string
 	Tags           []string
 	Permissions    []string
 	TargetKinds    []string
@@ -85,10 +91,11 @@ type Operation struct {
 }
 
 type Parameter struct {
-	Name     string
-	Location ParameterLocation
-	Required bool
-	Type     Type
+	Name        string
+	Description string
+	Location    ParameterLocation
+	Required    bool
+	Type        Type
 }
 
 type RequestBody struct {

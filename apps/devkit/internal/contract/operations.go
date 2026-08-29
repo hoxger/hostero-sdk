@@ -95,6 +95,8 @@ func buildOperation(path string, method string, pathParameters openapi3.Paramete
 		ID:             id,
 		Method:         method,
 		Path:           path,
+		Summary:        strings.TrimSpace(source.Summary),
+		Description:    strings.TrimSpace(source.Description),
 		Tags:           append([]string(nil), source.Tags...),
 		Permissions:    permissions,
 		TargetKinds:    targetKinds,
@@ -196,11 +198,16 @@ func buildParameters(pathParameters openapi3.Parameters, operationParameters ope
 		if err != nil {
 			return nil, fmt.Errorf("parameter %q: %w", source.Name, err)
 		}
+		paramDesc := strings.TrimSpace(source.Description)
+		if paramDesc == "" && source.Schema != nil && source.Schema.Value != nil {
+			paramDesc = strings.TrimSpace(source.Schema.Value.Description)
+		}
 		parameters = append(parameters, Parameter{
-			Name:     source.Name,
-			Location: location,
-			Required: source.Required,
-			Type:     typeValue,
+			Name:        source.Name,
+			Description: paramDesc,
+			Location:    location,
+			Required:    source.Required,
+			Type:        typeValue,
 		})
 	}
 	sort.Slice(parameters, func(left int, right int) bool {

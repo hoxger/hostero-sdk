@@ -64,7 +64,7 @@ func buildComponentSchemas(components *openapi3.Components, classes map[string]K
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("alias %q: %w", name, err)
 			}
-			aliases = append(aliases, Alias{Name: name, Type: typeValue})
+			aliases = append(aliases, Alias{Name: name, Description: strings.TrimSpace(schema.Description), Type: typeValue})
 		default:
 			return nil, nil, nil, fmt.Errorf("component schema %q has unknown class", name)
 		}
@@ -82,14 +82,23 @@ func buildModel(name string, schema *openapi3.Schema, classes map[string]Kind) (
 		required[fieldName] = struct{}{}
 	}
 
-	model := Model{Name: name}
+	model := Model{Name: name, Description: strings.TrimSpace(schema.Description)}
 	for _, fieldName := range sortedSchemaNames(schema.Properties) {
 		fieldType, err := buildType(schema.Properties[fieldName], classes)
 		if err != nil {
 			return Model{}, fmt.Errorf("model %q field %q: %w", name, fieldName, err)
 		}
 		_, isRequired := required[fieldName]
-		model.Fields = append(model.Fields, Field{Name: fieldName, Required: isRequired, Type: fieldType})
+		fieldDesc := ""
+		if schema.Properties[fieldName] != nil && schema.Properties[fieldName].Value != nil {
+			fieldDesc = strings.TrimSpace(schema.Properties[fieldName].Value.Description)
+		}
+		model.Fields = append(model.Fields, Field{
+			Name:        fieldName,
+			Description: fieldDesc,
+			Required:    isRequired,
+			Type:        fieldType,
+		})
 	}
 	return model, nil
 }
@@ -102,7 +111,7 @@ func buildEnum(name string, schema *openapi3.Schema) (Enum, error) {
 		return Enum{}, fmt.Errorf("enum %q must define string values", name)
 	}
 
-	enum := Enum{Name: name}
+	enum := Enum{Name: name, Description: strings.TrimSpace(schema.Description)}
 	for _, value := range schema.Enum {
 		stringValue, ok := value.(string)
 		if !ok || stringValue == "" {

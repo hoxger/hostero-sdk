@@ -19,7 +19,8 @@ __all__ = [
 	ModuleEnums: newModuleTemplate("enums", `{{ .Header }}{{ imports .Imports }}{{ range .Enums }}
 
 class {{ .Name }}(str, Enum):
-{{ range .Members }}    {{ .Name }} = {{ quote .Value }}
+{{ if .Docstring }}{{ docstring .Docstring "    " }}
+{{ end }}{{ range .Members }}    {{ .Name }} = {{ quote .Value }}
 {{ end }}{{ end }}`),
 	ModuleModels: newModuleTemplate("models", `{{ .Header }}{{ imports .Imports }}
 
@@ -30,7 +31,8 @@ class RedirectResponse:
 
 @dataclass(kw_only=True)
 class {{ .Name }}:
-{{ if .Fields }}{{ range .Fields }}    {{ .Name }}: {{ .Type }}{{ fieldDefault . }}
+{{ if .Docstring }}{{ docstring .Docstring "    " }}
+{{ end }}{{ if .Fields }}{{ range .Fields }}    {{ .Name }}: {{ .Type }}{{ fieldDefault . }}
 {{ end }}
     @classmethod
     def _from_dict(cls, data: Mapping[str, Any]) -> {{ .Name }}:
@@ -113,7 +115,8 @@ class {{ .Name }}:
 {{ if .SubServices }}{{ range .SubServices }}        self.{{ .Name }} = {{ .ClassName }}(client)
 {{ end }}{{ end }}{{ end }}{{ range .Methods }}
     {{ methodSignature . }}
-        path = {{ .PathExpr }}
+{{ if .Docstring }}{{ docstring .Docstring "        " }}
+{{ end }}        path = {{ .PathExpr }}
 {{ if .QueryParams }}        params = _filter_none({
 {{ range .QueryParams }}            {{ quote .JSONName }}: {{ .Name }},
 {{ end }}        })
@@ -176,6 +179,7 @@ type templateData struct {
 
 func newModuleTemplate(name string, contents string) *template.Template {
 	return template.Must(template.New(name).Funcs(template.FuncMap{
+		"docstring":       renderDocstring,
 		"fieldDefault":    renderFieldDefault,
 		"fromDictField":   renderFromDictField,
 		"toDictField":     renderToDictField,
@@ -186,6 +190,34 @@ func newModuleTemplate(name string, contents string) *template.Template {
 		"quote":           strconv.Quote,
 		"stringTuple":     renderStringTuple,
 	}).Parse(contents))
+}
+
+func renderDocstring(doc string, indent string) string {
+	doc = strings.TrimSpace(doc)
+	if doc == "" {
+		return ""
+	}
+	lines := strings.Split(doc, "\n")
+	if len(lines) == 1 {
+		return fmt.Sprintf("%s\"\"\"%s\"\"\"", indent, lines[0])
+	}
+	var output strings.Builder
+	output.WriteString(indent)
+	output.WriteString("\"\"\"")
+	output.WriteString(lines[0])
+	output.WriteByte('\n')
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" {
+			output.WriteByte('\n')
+		} else {
+			output.WriteString(indent)
+			output.WriteString(line)
+			output.WriteByte('\n')
+		}
+	}
+	output.WriteString(indent)
+	output.WriteString("\"\"\"")
+	return output.String()
 }
 
 func renderStringTuple(values []string) string {
@@ -337,9 +369,9 @@ func renderMethodSignature(m ServiceMethod) string {
 	} else if m.BodyParam != nil {
 		bodyType := m.BodyParam.Type
 		if !m.BodyParam.Required {
-			params = append(params, fmt.Sprintf("body: %s | dict[str, Any] | None = None", bodyType))
+			params = append(params, fmt.Sprintf("body: %s = None", bodyType))
 		} else {
-			params = append(params, fmt.Sprintf("body: %s | dict[str, Any]", bodyType))
+			params = append(params, fmt.Sprintf("body: %s", bodyType))
 		}
 	}
 	return fmt.Sprintf("def %s(%s) -> %s:", m.Name, strings.Join(params, ", "), m.ReturnType)

@@ -49,8 +49,9 @@ const (
 )
 
 type Enum struct {
-	Name    string
-	Members []EnumMember
+	Name      string
+	Docstring string
+	Members   []EnumMember
 }
 
 type EnumMember struct {
@@ -59,8 +60,9 @@ type EnumMember struct {
 }
 
 type Model struct {
-	Name   string
-	Fields []Field
+	Name      string
+	Docstring string
+	Fields    []Field
 }
 
 type FieldCodecKind string
@@ -135,6 +137,7 @@ type ServiceMethod struct {
 type MethodParam struct {
 	Name         string
 	JSONName     string
+	Description  string
 	Type         string
 	DefaultValue string
 	Required     bool
