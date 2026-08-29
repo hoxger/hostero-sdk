@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewRootCommand(version string, stdout io.Writer, stderr io.Writer) *cobra.Command {
+func NewRootCommand(version string, stdin io.Reader, stdout io.Writer, stderr io.Writer) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "hostero-devkit",
 		Short:         "Hostero API developer toolkit",
@@ -19,6 +19,7 @@ func NewRootCommand(version string, stdout io.Writer, stderr io.Writer) *cobra.C
 
 	root.SetOut(stdout)
 	root.SetErr(stderr)
+	root.SetIn(stdin)
 	root.AddCommand(
 		newInitCommand(),
 		newGenerateCommand(),

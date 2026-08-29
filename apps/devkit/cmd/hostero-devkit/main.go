@@ -10,7 +10,7 @@ import (
 const version = "dev"
 
 func main() {
-	root := cli.NewRootCommand(version, os.Stdout, os.Stderr)
+	root := cli.NewRootCommand(version, os.Stdin, os.Stdout, os.Stderr)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(root.ErrOrStderr(), "error: %s\n", err)
 		os.Exit(1)
