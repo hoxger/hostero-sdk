@@ -17,6 +17,8 @@ lefthook install
 task
 task build
 ./bin/hostero-devkit
+./bin/hostero-devkit update
+./bin/hostero-devkit generate
 ```
 
 ## License

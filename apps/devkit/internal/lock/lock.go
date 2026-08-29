@@ -41,21 +41,16 @@ func WriteNew(path string, file File) error {
 		return fmt.Errorf("validate %s: %w", FileName, err)
 	}
 
-	var output bytes.Buffer
-	encoder := yaml.NewEncoder(&output)
-	encoder.SetIndent(2)
-	if err := encoder.Encode(file); err != nil {
-		return fmt.Errorf("encode %s: %w", FileName, err)
-	}
-	if err := encoder.Close(); err != nil {
-		return fmt.Errorf("close YAML encoder for %s: %w", FileName, err)
+	output, err := encode(file)
+	if err != nil {
+		return err
 	}
 
 	handle, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", FileName, err)
 	}
-	if _, err := handle.Write(output.Bytes()); err != nil {
+	if _, err := handle.Write(output); err != nil {
 		_ = handle.Close()
 		_ = os.Remove(path)
 		return fmt.Errorf("write %s: %w", FileName, err)
@@ -65,6 +60,61 @@ func WriteNew(path string, file File) error {
 		return fmt.Errorf("close %s: %w", FileName, err)
 	}
 	return nil
+}
+
+func Replace(path string, file File) error {
+	if err := file.Validate(); err != nil {
+		return fmt.Errorf("validate %s: %w", FileName, err)
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%s must not be a symlink", FileName)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("%s must be a regular file", FileName)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("inspect %s: %w", FileName, err)
+	}
+
+	output, err := encode(file)
+	if err != nil {
+		return err
+	}
+	temporary, err := os.CreateTemp(filepath.Dir(path), ".hostero.devkit.lock-*")
+	if err != nil {
+		return fmt.Errorf("create %s temporary file: %w", FileName, err)
+	}
+	temporaryPath := temporary.Name()
+	defer os.Remove(temporaryPath)
+	if err := temporary.Chmod(0o644); err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("set %s permissions: %w", FileName, err)
+	}
+	if _, err := temporary.Write(output); err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("write %s temporary file: %w", FileName, err)
+	}
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("close %s temporary file: %w", FileName, err)
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
+		return fmt.Errorf("replace %s: %w", FileName, err)
+	}
+	return nil
+}
+
+func encode(file File) ([]byte, error) {
+	var output bytes.Buffer
+	encoder := yaml.NewEncoder(&output)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(file); err != nil {
+		return nil, fmt.Errorf("encode %s: %w", FileName, err)
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, fmt.Errorf("close YAML encoder for %s: %w", FileName, err)
+	}
+	return output.Bytes(), nil
 }
 
 func Load(path string) (File, error) {

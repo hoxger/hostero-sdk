@@ -1,9 +1,9 @@
 version: 1
 openapi:
   source:
-    kind: file
-    path: ./openapi/hostero.openapi.json
-  release: mvp
+    kind: url
+    url: http://localhost:8000/v1/openapi.json
+  snapshot: ./openapi/hostero.openapi.json
 targets:
   - language: python
     output: ./packages/python/src/hostero

@@ -6,7 +6,7 @@ type Document struct {
 
 type GenerationMetadata struct {
 	DevKitVersion string
-	OpenAPIPath   string
+	OpenAPISource string
 	Release       string
 	SHA256        string
 }

@@ -103,12 +103,12 @@ func TestBuildMapsNamesAndRejectsCollisions(t *testing.T) {
 
 func TestRenderRejectsInvalidGenerationMetadata(t *testing.T) {
 	_, err := Render(Document{}, GenerationMetadata{DevKitVersion: "test"})
-	if err == nil || !strings.Contains(err.Error(), "OpenAPI path") {
+	if err == nil || !strings.Contains(err.Error(), "OpenAPI source") {
 		t.Fatalf("Render() error = %v, want missing metadata rejection", err)
 	}
 	_, err = Render(Document{}, GenerationMetadata{
 		DevKitVersion: "test\ninvalid",
-		OpenAPIPath:   "./openapi.json",
+		OpenAPISource: "https://api.example.test/openapi.json",
 		Release:       "mvp",
 		SHA256:        "abc",
 	})
@@ -132,7 +132,7 @@ func fixtureContract(t *testing.T) contract.Document {
 
 var fixtureMetadata = GenerationMetadata{
 	DevKitVersion: "test",
-	OpenAPIPath:   "./openapi/hostero.openapi.json",
+	OpenAPISource: "https://api.example.test/openapi.json",
 	Release:       "mvp",
 	SHA256:        "03c46244b097e10690b86591c5619747855cc1a6cb7f76214c99daeb8648f4d4",
 }

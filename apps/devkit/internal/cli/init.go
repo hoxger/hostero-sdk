@@ -40,8 +40,9 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fixturePath := filepath.Join(workingDirectory, bootstrap.OpenAPIPath)
-	if err := ensureNewFile(fixturePath, bootstrap.OpenAPIPath); err != nil {
+	configuration := config.New(config.DefaultTarget())
+	fixturePath := filepath.Join(workingDirectory, configuration.OpenAPI.Snapshot)
+	if err := ensureNewFile(fixturePath, configuration.OpenAPI.Snapshot); err != nil {
 		return err
 	}
 	if err := ensureDirectory(filepath.Dir(fixturePath), "OpenAPI directory"); err != nil {
@@ -60,7 +61,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	if err := writeFixture(fixturePath, bootstrap.OpenAPI()); err != nil {
 		return err
 	}
-	configuration := config.New(target)
+	configuration.Targets[0] = target
 	if err := config.WriteNew(configPath, configuration); err != nil {
 		_ = os.Remove(fixturePath)
 		return err
@@ -79,9 +80,9 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	fmt.Fprintf(
 		writer,
-		"\nCreated %s\nCreated %s\nCreated %s\n\nNext: hostero-devkit generate\n",
+		"\nCreated %s\nCreated %s\nCreated %s\n\nNext: hostero-devkit update && hostero-devkit generate\n",
 		config.FileName,
-		bootstrap.OpenAPIPath,
+		configuration.OpenAPI.Snapshot,
 		lock.FileName,
 	)
 	return nil

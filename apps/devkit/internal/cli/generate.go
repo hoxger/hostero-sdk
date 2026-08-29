@@ -40,7 +40,7 @@ func runGenerate(cmd *cobra.Command, _ []string) error {
 		}
 		files, err := python.Render(pythonDocument, python.GenerationMetadata{
 			DevKitVersion: cmd.Root().Version,
-			OpenAPIPath:   pinned.Configuration.OpenAPI.Source.Path,
+			OpenAPISource: pinned.Configuration.OpenAPI.Source.URL,
 			Release:       pinned.Source.Release,
 			SHA256:        pinned.Source.SHA256,
 		})

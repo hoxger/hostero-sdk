@@ -72,9 +72,9 @@ func newModuleTemplate(name string, contents string) *template.Template {
 
 func generatedHeader(metadata GenerationMetadata) string {
 	return fmt.Sprintf(
-		generatedPreamble+"# devkit: %s\n# OpenAPI: %s\n# release: %s\n# sha256: %s\n",
+		generatedPreamble+"# devkit: %s\n# OpenAPI source: %s\n# release: %s\n# sha256: %s\n",
 		metadata.DevKitVersion,
-		metadata.OpenAPIPath,
+		metadata.OpenAPISource,
 		metadata.Release,
 		metadata.SHA256,
 	)
@@ -86,7 +86,7 @@ func validateGenerationMetadata(metadata GenerationMetadata) error {
 		value string
 	}{
 		{label: "DevKit version", value: metadata.DevKitVersion},
-		{label: "OpenAPI path", value: metadata.OpenAPIPath},
+		{label: "OpenAPI source", value: metadata.OpenAPISource},
 		{label: "release", value: metadata.Release},
 		{label: "SHA-256", value: metadata.SHA256},
 	}

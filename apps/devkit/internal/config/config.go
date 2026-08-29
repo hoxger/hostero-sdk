@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/hoxger/hostero-sdk/apps/devkit/internal/bootstrap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,7 +23,12 @@ const LanguagePython Language = "python"
 
 type SourceKind string
 
-const SourceKindFile SourceKind = "file"
+const SourceKindURL SourceKind = "url"
+
+const (
+	defaultOpenAPIURL      = "http://localhost:8000/v1/openapi.json"
+	defaultOpenAPISnapshot = "./openapi/hostero.openapi.json"
+)
 
 var supportedLanguages = [...]Language{LanguagePython}
 
@@ -47,13 +52,13 @@ type File struct {
 }
 
 type OpenAPI struct {
-	Source  Source `yaml:"source"`
-	Release string `yaml:"release"`
+	Source   Source `yaml:"source"`
+	Snapshot string `yaml:"snapshot"`
 }
 
 type Source struct {
 	Kind SourceKind `yaml:"kind"`
-	Path string     `yaml:"path"`
+	URL  string     `yaml:"url"`
 }
 
 type Target struct {
@@ -73,10 +78,10 @@ func New(target Target) File {
 		Version: 1,
 		OpenAPI: OpenAPI{
 			Source: Source{
-				Kind: SourceKindFile,
-				Path: bootstrap.OpenAPIPath,
+				Kind: SourceKindURL,
+				URL:  defaultOpenAPIURL,
 			},
-			Release: "mvp",
+			Snapshot: defaultOpenAPISnapshot,
 		},
 		Targets: []Target{target},
 	}
@@ -147,14 +152,14 @@ func (file File) Validate() error {
 	if file.Version != 1 {
 		return fmt.Errorf("unsupported config version %d", file.Version)
 	}
-	if file.OpenAPI.Source.Kind != SourceKindFile {
+	if file.OpenAPI.Source.Kind != SourceKindURL {
 		return fmt.Errorf("unsupported OpenAPI source kind %q", file.OpenAPI.Source.Kind)
 	}
-	if err := ValidateProjectPath(file.OpenAPI.Source.Path); err != nil {
-		return fmt.Errorf("OpenAPI source path: %w", err)
+	if err := ValidateSourceURL(file.OpenAPI.Source.URL); err != nil {
+		return fmt.Errorf("OpenAPI source URL: %w", err)
 	}
-	if strings.TrimSpace(file.OpenAPI.Release) == "" {
-		return errors.New("OpenAPI release is required")
+	if err := ValidateProjectPath(file.OpenAPI.Snapshot); err != nil {
+		return fmt.Errorf("OpenAPI snapshot path: %w", err)
 	}
 	if len(file.Targets) == 0 {
 		return errors.New("at least one target is required")
@@ -169,6 +174,23 @@ func (file File) Validate() error {
 		}
 	}
 
+	return nil
+}
+
+func ValidateSourceURL(rawURL string) error {
+	parsed, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return errors.New("URL scheme must be http or https")
+	}
+	if parsed.Host == "" {
+		return errors.New("URL host is required")
+	}
+	if parsed.User != nil {
+		return errors.New("URL must not include credentials")
+	}
 	return nil
 }
 
