@@ -27,8 +27,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
 
       - name: Read release state
         id: release-state
@@ -40,12 +38,15 @@ jobs:
             echo 'initialized=true' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Require the bootstrap release footer
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.release-state.outputs.initialized == 'false' }}
+      - name: Prepare Release Please configuration
+        id: release-config
         run: |
-          if ! git log --format=%B | grep --fixed-strings --line-regexp 'Release-As: 0.1.0-beta.1' >/dev/null; then
-            echo 'The first release requires a merged commit with Release-As: 0.1.0-beta.1.' >&2
-            exit 1
+          if [ "${{ steps.release-state.outputs.initialized }}" = 'false' ]; then
+            jq '.packages["packages/python"]["release-as"] = "0.1.0-beta.1"' \
+              release-please-config.json > .release-please-bootstrap-config.json
+            echo 'config_file=.release-please-bootstrap-config.json' >> "$GITHUB_OUTPUT"
+          else
+            echo 'config_file=release-please-config.json' >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Release Please
@@ -53,7 +54,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || steps.release-state.outputs.initialized == 'true' }}
         uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
         with:
-          config-file: release-please-config.json
+          config-file: ${{ steps.release-config.outputs.config_file }}
           manifest-file: .release-please-manifest.json
 
       - name: Set up uv for release pull request
