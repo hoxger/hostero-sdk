@@ -30,6 +30,14 @@ jobs:
           go-version-file: go.mod
           cache: false
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
       - name: Verify formatting
         run: test -z "$(gofmt -l .)"
 
