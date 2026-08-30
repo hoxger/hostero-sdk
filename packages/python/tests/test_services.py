@@ -6,8 +6,8 @@ from hostero import Hostero, RedirectResponse, Upload
 from hostero._generated.enums import GameServerStatus
 from hostero._generated.models import (
     GameServerListItemResource,
-    PaginatedResponseGameServerListItemResource,
 )
+from hostero._generated.resources import GameServerListItem, GameServerPage
 
 
 def test_servers_list_and_power_operations() -> None:
@@ -53,25 +53,35 @@ def test_servers_list_and_power_operations() -> None:
             and request.method == "POST"
         ):
             return httpx.Response(204)
+        if (
+            request.url.path == "/v1/servers/srv_123/subusers"
+            and request.method == "GET"
+        ):
+            return httpx.Response(200, json=[])
         return httpx.Response(404)
 
     with Hostero("hst_test_token", transport=httpx.MockTransport(handler)) as client:
-        # Test client.servers.list()
-        res: PaginatedResponseGameServerListItemResource = client.servers.list(limit=20)
+        res: GameServerPage = client.servers.list(limit=20)
         assert res.total == 1
         assert len(res.items) == 1
-        item: GameServerListItemResource = res.items[0]
+        item: GameServerListItem = res.items[0]
         assert item.id == "srv_123"
         assert item.name == "My Minecraft Server"
         assert item.status == GameServerStatus.RUNNING
+        assert isinstance(item.data, GameServerListItemResource)
 
-        # Test client.servers.power.restart(server_id)
-        restart_res = client.servers.power.restart("srv_123")
-        assert restart_res is None
+        assert item.subusers.list() == []
+        assert item.power.restart() is None
 
-    assert len(captured_requests) == 2
+        assert client.servers.subusers.list("srv_123") == []
+        assert client.servers.power.restart("srv_123") is None
+
+    assert len(captured_requests) == 5
     assert captured_requests[0].url.query == b"limit=20"
-    assert captured_requests[1].url.path == "/v1/servers/srv_123/power/restart"
+    assert captured_requests[1].url.path == "/v1/servers/srv_123/subusers"
+    assert captured_requests[2].url.path == "/v1/servers/srv_123/power/restart"
+    assert captured_requests[3].url.path == "/v1/servers/srv_123/subusers"
+    assert captured_requests[4].url.path == "/v1/servers/srv_123/power/restart"
 
 
 def test_servers_files_contents_get_and_write() -> None:

@@ -34,6 +34,15 @@ func TestBuildPinnedPublicSnapshotOperations(t *testing.T) {
 		t.Fatalf("unexpected restart client metadata: %#v", restart.ClientMetadata)
 	}
 
+	if len(document.Resources) != 2 {
+		t.Fatalf("resource count = %d, want 2", len(document.Resources))
+	}
+	for _, resource := range document.Resources {
+		if resource.Kind != "game_server" || resource.IDField != "id" || resource.PathParameter != "server_id" || strings.Join(resource.Group, ".") != "servers" {
+			t.Fatalf("unexpected resource metadata: %#v", resource)
+		}
+	}
+
 	download := findOperation(t, document.Operations, "servers_backups_download_list")
 	if download.Success.Status != 302 || download.Success.Type != nil || strings.Join(download.Permissions, ",") != "game_servers.backups.download" {
 		t.Fatalf("unexpected backup download operation: %#v", download)
@@ -56,6 +65,27 @@ func TestBuildRejectsUnsupportedContracts(t *testing.T) {
 				model.Properties["name"] = &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
 			},
 			message: "anonymous object schemas are not supported",
+		},
+		{
+			name: "resource has invalid id field",
+			mutate: func(parsed *openapi.Document) {
+				schema := parsed.Specification.Components.Schemas["GameServerListItemResource"].Value
+				schema.Extensions = map[string]any{"x-hostero-client-resource": map[string]any{
+					"kind": "game_server", "id_field": "missing", "group": []any{"servers"}, "path_parameter": "server_id",
+				}}
+			},
+			message: "id_field \"missing\" is not a model field",
+		},
+		{
+			name: "resource has unbindable path parameter",
+			mutate: func(parsed *openapi.Document) {
+				metadata := map[string]any{
+					"kind": "game_server", "id_field": "id", "group": []any{"servers"}, "path_parameter": "unknown_id",
+				}
+				parsed.Specification.Components.Schemas["GameServerListItemResource"].Value.Extensions = map[string]any{"x-hostero-client-resource": metadata}
+				parsed.Specification.Components.Schemas["GameServerDetailResource"].Value.Extensions = map[string]any{"x-hostero-client-resource": metadata}
+			},
+			message: "has no matching resource-scoped operation",
 		},
 	}
 

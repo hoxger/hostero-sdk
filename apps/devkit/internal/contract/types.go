@@ -23,6 +23,7 @@ type Document struct {
 	Models     []Model
 	Enums      []Enum
 	Aliases    []Alias
+	Resources  []Resource
 	Operations []Operation
 }
 
@@ -30,6 +31,16 @@ type Model struct {
 	Name        string
 	Description string
 	Fields      []Field
+}
+
+// Resource declares a component model that generated clients may bind to a root service.
+// The declaration is sourced exclusively from x-hostero-client-resource.
+type Resource struct {
+	Model         string
+	Kind          string
+	IDField       string
+	Group         []string
+	PathParameter string
 }
 
 type Field struct {

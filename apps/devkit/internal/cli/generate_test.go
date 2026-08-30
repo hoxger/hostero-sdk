@@ -49,7 +49,7 @@ func TestGenerateCreatesCompilablePythonSources(t *testing.T) {
 
 	generatedDirectory := filepath.Join(workingDirectory, "packages", "python", "src", "hostero", "_generated")
 	paths, err := filepath.Glob(filepath.Join(generatedDirectory, "*.py"))
-	if err != nil || len(paths) != 6 {
+	if err != nil || len(paths) != 7 {
 		t.Fatalf("generated Python files = %v, %v", paths, err)
 	}
 

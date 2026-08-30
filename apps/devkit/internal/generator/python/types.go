@@ -18,6 +18,7 @@ const (
 	ModuleEnums      ModuleKind = "enums"
 	ModuleModels     ModuleKind = "models"
 	ModuleOperations ModuleKind = "operations"
+	ModuleResources  ModuleKind = "resources"
 	ModuleTypes      ModuleKind = "types"
 	ModuleServices   ModuleKind = "services"
 )
@@ -31,7 +32,23 @@ type Module struct {
 	Operations []Operation
 	Aliases    []Alias
 	Services   []ServiceClass
+	Resources  []Resource
+	Pages      []ResourcePage
 	Exports    []string
+}
+
+type Resource struct {
+	Name         string
+	ModelName    string
+	Fields       []Field
+	BoundMethods []string
+}
+
+type ResourcePage struct {
+	Name      string
+	ModelName string
+	ItemName  string
+	Fields    []Field
 }
 
 type Import struct {
@@ -132,6 +149,8 @@ type ServiceMethod struct {
 	ReturnModelName string
 	IsReturnList    bool
 	IsReturnModel   bool
+	ResourceName    string
+	ResourcePage    string
 }
 
 type MethodParam struct {

@@ -144,6 +144,65 @@ class {{ .Name }}:
         )
 {{ methodReturn . }}
 {{ end }}{{ end }}{{ end }}`),
+	ModuleResources: newModuleTemplate("resources", `{{ .Header }}{{ imports .Imports }}
+
+
+class _BoundService:
+    def __init__(self, service: Any, resource_id: str, path: str, allowed: frozenset[str]) -> None:
+        self._service = service
+        self._resource_id = resource_id
+        self._path = path
+        self._allowed = allowed
+
+    def __getattr__(self, name: str) -> Any:
+        path = name if not self._path else self._path + "." + name
+        value = getattr(self._service, name)
+        if callable(value):
+            if path not in self._allowed:
+                raise AttributeError(name)
+
+            def bound(*args: Any, **kwargs: Any) -> Any:
+                return value(self._resource_id, *args, **kwargs)
+
+            return bound
+        prefix = path + "."
+        if not any(method.startswith(prefix) for method in self._allowed):
+            raise AttributeError(name)
+        return _BoundService(value, self._resource_id, path, self._allowed)
+{{ range .Resources }}
+
+_{{ .Name }}_BOUND_METHODS = frozenset({
+{{ range .BoundMethods }}    {{ quote . }},
+{{ end }}})
+
+
+@dataclass(frozen=True, slots=True)
+class {{ .Name }}:
+    data: {{ .ModelName }}
+    _service: Any = field(repr=False, compare=False)
+
+    def __getattr__(self, name: str) -> Any:
+        return _BoundService(self._service, self.id, "", _{{ .Name }}_BOUND_METHODS).__getattr__(name)
+{{ range .Fields }}
+    @property
+    def {{ .Name }}(self):
+        return self.data.{{ .Name }}
+{{ end }}{{ end }}{{ range .Pages }}
+
+
+@dataclass(frozen=True, slots=True)
+class {{ .Name }}:
+    data: {{ .ModelName }}
+    _service: Any = field(repr=False, compare=False)
+
+    @property
+    def items(self) -> list[{{ .ItemName }}]:
+        return [{{ .ItemName }}(data=item, _service=self._service) for item in self.data.items]
+{{ range .Fields }}{{ if ne .Name "items" }}
+    @property
+    def {{ .Name }}(self):
+        return self.data.{{ .Name }}
+{{ end }}{{ end }}{{ end }}`),
 }
 
 func Render(document Document, metadata GenerationMetadata) (map[string][]byte, error) {
@@ -398,6 +457,12 @@ func renderMethodReturn(m ServiceMethod) string {
 		return fmt.Sprintf("        return [%s._from_dict(item) for item in response.json()]", m.ReturnModelName)
 	}
 	if m.IsReturnModel {
+		if m.ResourceName != "" {
+			return fmt.Sprintf("        return %s(data=%s._from_dict(response.json()), _service=self)", m.ResourceName, m.ReturnModelName)
+		}
+		if m.ResourcePage != "" {
+			return fmt.Sprintf("        return %s(data=%s._from_dict(response.json()), _service=self)", m.ResourcePage, m.ReturnModelName)
+		}
 		return fmt.Sprintf("        return %s._from_dict(response.json())", m.ReturnModelName)
 	}
 	return "        return response.json()"

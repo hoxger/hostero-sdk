@@ -17,8 +17,8 @@ func TestBuildAndRenderPinnedContract(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if len(document.Modules) != 6 {
-		t.Fatalf("module count = %d, want 6", len(document.Modules))
+	if len(document.Modules) != 7 {
+		t.Fatalf("module count = %d, want 7", len(document.Modules))
 	}
 
 	files, err := Render(document, fixtureMetadata)
@@ -40,10 +40,18 @@ func TestBuildAndRenderPinnedContract(t *testing.T) {
 		!strings.Contains(servicesCode, "class TicketsMessagesAttachmentsService:") {
 		t.Fatalf("services.py missing expected services: %s", servicesCode)
 	}
+	resourcesCode := string(files["resources.py"])
+	if !strings.Contains(resourcesCode, "class GameServer:") ||
+		!strings.Contains(resourcesCode, "class GameServerListItem:") ||
+		!strings.Contains(resourcesCode, "class GameServerPage:") ||
+		!strings.Contains(resourcesCode, "subusers.list") {
+		t.Fatalf("resources.py missing expected resource wrappers: %s", resourcesCode)
+	}
 
 	initCode := string(files["__init__.py"])
 	if !strings.Contains(initCode, "_GeneratedServicesMixin") ||
-		!strings.Contains(initCode, "RedirectResponse") {
+		!strings.Contains(initCode, "RedirectResponse") ||
+		!strings.Contains(initCode, "GameServerPage") {
 		t.Fatalf("__init__.py missing expected exports: %s", initCode)
 	}
 }
