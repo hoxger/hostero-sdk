@@ -41,11 +41,19 @@ func TestBuildAndRenderPinnedContract(t *testing.T) {
 		t.Fatalf("services.py missing expected services: %s", servicesCode)
 	}
 	resourcesCode := string(files["resources.py"])
-	if !strings.Contains(resourcesCode, "class GameServer:") ||
-		!strings.Contains(resourcesCode, "class GameServerListItem:") ||
+	if !strings.Contains(resourcesCode, "class GameServerHandle(Generic[TGameServerData]):") ||
+		!strings.Contains(resourcesCode, "class GameServer(GameServerHandle[GameServerDetailResource]):") ||
+		!strings.Contains(resourcesCode, "class GameServerListItem(GameServerHandle[GameServerListItemResource]):") ||
 		!strings.Contains(resourcesCode, "class GameServerPage:") ||
-		!strings.Contains(resourcesCode, "subusers.list") {
+		!strings.Contains(resourcesCode, "class GameServerSubusers:") ||
+		!strings.Contains(resourcesCode, "def subusers(self) -> GameServerSubusers:") ||
+		!strings.Contains(resourcesCode, "return self._service.subusers.list(self._resource_id)") ||
+		strings.Contains(resourcesCode, "class _BoundService:") ||
+		strings.Contains(resourcesCode, "def __getattr__(self, name: str) -> Any:") {
 		t.Fatalf("resources.py missing expected resource wrappers: %s", resourcesCode)
+	}
+	if strings.Count(resourcesCode, "class GameServerSubusers:") != 1 || strings.Count(resourcesCode, "def subusers(self) -> GameServerSubusers:") != 1 {
+		t.Fatalf("resources.py duplicated shared game-server handle members: %s", resourcesCode)
 	}
 
 	initCode := string(files["__init__.py"])

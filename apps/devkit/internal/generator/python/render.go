@@ -109,10 +109,10 @@ def _serialize_body(body: Any) -> Any:
 class {{ .Name }}:
 {{ if eq .Name "_GeneratedServicesMixin" }}    def __init__(self, client: Any = None) -> None:
         c = client if client is not None else self
-{{ if .SubServices }}{{ range .SubServices }}        self.{{ .Name }} = {{ .ClassName }}(c)
+{{ if .SubServices }}{{ range .SubServices }}        self.{{ .Name }}: {{ .ClassName }} = {{ .ClassName }}(c)
 {{ end }}{{ end }}{{ else }}    def __init__(self, client: Any) -> None:
         self._client: Any = client
-{{ if .SubServices }}{{ range .SubServices }}        self.{{ .Name }} = {{ .ClassName }}(client)
+{{ if .SubServices }}{{ range .SubServices }}        self.{{ .Name }}: {{ .ClassName }} = {{ .ClassName }}(client)
 {{ end }}{{ end }}{{ end }}{{ range .Methods }}
     {{ methodSignature . }}
 {{ if .Docstring }}{{ docstring .Docstring "        " }}
@@ -145,47 +145,51 @@ class {{ .Name }}:
 {{ methodReturn . }}
 {{ end }}{{ end }}{{ end }}`),
 	ModuleResources: newModuleTemplate("resources", `{{ .Header }}{{ imports .Imports }}
+{{ if .ServiceTypes }}
 
+if TYPE_CHECKING:
+{{ range .ServiceTypes }}    from .services import {{ . }}
+{{ end }}{{ end }}{{ range .ResourceKinds }}{{ range .BoundServices }}
 
-class _BoundService:
-    def __init__(self, service: Any, resource_id: str, path: str, allowed: frozenset[str]) -> None:
+class {{ .ClassName }}:
+    def __init__(self, service: {{ quote .RootServiceClass }}, resource_id: str) -> None:
         self._service = service
         self._resource_id = resource_id
-        self._path = path
-        self._allowed = allowed
+{{ range .SubServices }}
+    @property
+    def {{ .Name }}(self) -> {{ .ClassName }}:
+        return {{ .ClassName }}(self._service, self._resource_id)
+{{ end }}{{ range .Methods }}
+    {{ methodSignature .Method }}
+{{ if .Method.Docstring }}{{ docstring .Method.Docstring "        " }}
+{{ end }}{{ boundMethodCall . }}
+{{ end }}{{ end }}{{ end }}{{ range .ResourceKinds }}{{ $resourceKind := . }}
 
-    def __getattr__(self, name: str) -> Any:
-        path = name if not self._path else self._path + "." + name
-        value = getattr(self._service, name)
-        if callable(value):
-            if path not in self._allowed:
-                raise AttributeError(name)
-
-            def bound(*args: Any, **kwargs: Any) -> Any:
-                return value(self._resource_id, *args, **kwargs)
-
-            return bound
-        prefix = path + "."
-        if not any(method.startswith(prefix) for method in self._allowed):
-            raise AttributeError(name)
-        return _BoundService(value, self._resource_id, path, self._allowed)
-{{ range .Resources }}
-
-_{{ .Name }}_BOUND_METHODS = frozenset({
-{{ range .BoundMethods }}    {{ quote . }},
-{{ end }}})
-
+{{ typeVariable . }}
 
 @dataclass(frozen=True, slots=True)
-class {{ .Name }}:
-    data: {{ .ModelName }}
-    _service: Any = field(repr=False, compare=False)
+class {{ .HandleName }}(Generic[{{ .TypeVariable }}]):
+    data: {{ .TypeVariable }}
+    _service: {{ quote .ServiceClass }} = field(repr=False, compare=False)
+{{ range .SubServices }}
+    @property
+    def {{ .Name }}(self) -> {{ .ClassName }}:
+        return {{ .ClassName }}(self._service, self.{{ $resourceKind.IDField }})
+{{ end }}{{ range .Methods }}
+    {{ methodSignature .Method }}
+{{ if .Method.Docstring }}{{ docstring .Method.Docstring "        " }}
+{{ end }}{{ resourceMethodCall . $resourceKind.IDField }}
+{{ end }}{{ range .Fields }}
+    @property
+    def {{ .Name }}(self) -> {{ .Type }}:
+        return self.data.{{ .Name }}
+{{ end }}{{ end }}{{ range .Resources }}
 
-    def __getattr__(self, name: str) -> Any:
-        return _BoundService(self._service, self.id, "", _{{ .Name }}_BOUND_METHODS).__getattr__(name)
+class {{ .Name }}({{ .HandleName }}[{{ .ModelName }}]):
+    __slots__ = ()
 {{ range .Fields }}
     @property
-    def {{ .Name }}(self):
+    def {{ .Name }}(self) -> {{ .Type }}:
         return self.data.{{ .Name }}
 {{ end }}{{ end }}{{ range .Pages }}
 
@@ -193,14 +197,14 @@ class {{ .Name }}:
 @dataclass(frozen=True, slots=True)
 class {{ .Name }}:
     data: {{ .ModelName }}
-    _service: Any = field(repr=False, compare=False)
+    _service: {{ quote .ServiceClass }} = field(repr=False, compare=False)
 
     @property
     def items(self) -> list[{{ .ItemName }}]:
         return [{{ .ItemName }}(data=item, _service=self._service) for item in self.data.items]
 {{ range .Fields }}{{ if ne .Name "items" }}
     @property
-    def {{ .Name }}(self):
+    def {{ .Name }}(self) -> {{ .Type }}:
         return self.data.{{ .Name }}
 {{ end }}{{ end }}{{ end }}`),
 }
@@ -238,16 +242,19 @@ type templateData struct {
 
 func newModuleTemplate(name string, contents string) *template.Template {
 	return template.Must(template.New(name).Funcs(template.FuncMap{
-		"docstring":       renderDocstring,
-		"fieldDefault":    renderFieldDefault,
-		"fromDictField":   renderFromDictField,
-		"toDictField":     renderToDictField,
-		"methodSignature": renderMethodSignature,
-		"methodReturn":    renderMethodReturn,
-		"imports":         renderImports,
-		"join":            strings.Join,
-		"quote":           strconv.Quote,
-		"stringTuple":     renderStringTuple,
+		"docstring":          renderDocstring,
+		"fieldDefault":       renderFieldDefault,
+		"fromDictField":      renderFromDictField,
+		"toDictField":        renderToDictField,
+		"methodSignature":    renderMethodSignature,
+		"methodReturn":       renderMethodReturn,
+		"boundMethodCall":    renderBoundMethodCall,
+		"resourceMethodCall": renderResourceMethodCall,
+		"typeVariable":       renderTypeVariable,
+		"imports":            renderImports,
+		"join":               strings.Join,
+		"quote":              strconv.Quote,
+		"stringTuple":        renderStringTuple,
 	}).Parse(contents))
 }
 
@@ -466,4 +473,47 @@ func renderMethodReturn(m ServiceMethod) string {
 		return fmt.Sprintf("        return %s._from_dict(response.json())", m.ReturnModelName)
 	}
 	return "        return response.json()"
+}
+
+func renderBoundMethodCall(method BoundMethod) (string, error) {
+	return renderBoundMethodCallWithID(method, "self._resource_id")
+}
+
+func renderResourceMethodCall(method BoundMethod, idField string) (string, error) {
+	return renderBoundMethodCallWithID(method, "self."+idField)
+}
+
+func renderBoundMethodCallWithID(method BoundMethod, resourceID string) (string, error) {
+	target := "self._service"
+	for _, segment := range method.ServicePath {
+		name, err := groupFieldName(segment)
+		if err != nil {
+			return "", err
+		}
+		target += "." + name
+	}
+
+	arguments := []string{resourceID}
+	for _, parameter := range method.Method.PathParams {
+		arguments = append(arguments, parameter.Name)
+	}
+	for _, parameter := range method.Method.QueryParams {
+		arguments = append(arguments, parameter.Name+"="+parameter.Name)
+	}
+	if method.Method.IsMultipart {
+		arguments = append(arguments, "file=file")
+	} else if method.Method.IsRawBody {
+		arguments = append(arguments, "content=content")
+	} else if method.Method.BodyParam != nil {
+		arguments = append(arguments, "body=body")
+	}
+
+	return "        return " + target + "." + method.Method.Name + "(" + strings.Join(arguments, ", ") + ")", nil
+}
+
+func renderTypeVariable(resourceKind ResourceKind) string {
+	if len(resourceKind.ModelNames) == 1 {
+		return resourceKind.TypeVariable + " = TypeVar(" + strconv.Quote(resourceKind.TypeVariable) + ", bound=" + resourceKind.ModelNames[0] + ")"
+	}
+	return resourceKind.TypeVariable + " = TypeVar(" + strconv.Quote(resourceKind.TypeVariable) + ", " + strings.Join(resourceKind.ModelNames, ", ") + ")"
 }

@@ -209,7 +209,9 @@ class GameFeaturesMinecraftInstallerService:
 class GameFeaturesService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.minecraft_installer = GameFeaturesMinecraftInstallerService(client)
+        self.minecraft_installer: GameFeaturesMinecraftInstallerService = (
+            GameFeaturesMinecraftInstallerService(client)
+        )
 
 
 class GamesOffersService:
@@ -234,7 +236,7 @@ class GamesOffersService:
 class GamesService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.offers = GamesOffersService(client)
+        self.offers: GamesOffersService = GamesOffersService(client)
 
 
 class OrderGamesService:
@@ -314,7 +316,7 @@ class OrderGamesService:
 class OrderService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.games = OrderGamesService(client)
+        self.games: OrderGamesService = OrderGamesService(client)
 
 
 class ServersActivityService:
@@ -428,7 +430,9 @@ class ServersBackupsRestoresService:
 class ServersBackupsService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.restores = ServersBackupsRestoresService(client)
+        self.restores: ServersBackupsRestoresService = ServersBackupsRestoresService(
+            client
+        )
 
     def list(self, server_id: str) -> builtins.list[GameServerBackupResource]:
         """List backups.
@@ -937,10 +941,12 @@ class ServersFilesSearchService:
 class ServersFilesService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.compress = ServersFilesCompressService(client)
-        self.contents = ServersFilesContentsService(client)
-        self.decompress = ServersFilesDecompressService(client)
-        self.search = ServersFilesSearchService(client)
+        self.compress: ServersFilesCompressService = ServersFilesCompressService(client)
+        self.contents: ServersFilesContentsService = ServersFilesContentsService(client)
+        self.decompress: ServersFilesDecompressService = ServersFilesDecompressService(
+            client
+        )
+        self.search: ServersFilesSearchService = ServersFilesSearchService(client)
 
     def list(
         self,
@@ -1488,7 +1494,7 @@ class ServersSchedulesRunsService:
 class ServersSchedulesService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.runs = ServersSchedulesRunsService(client)
+        self.runs: ServersSchedulesRunsService = ServersSchedulesRunsService(client)
 
     def list(
         self, server_id: str, *, limit: int | None = None, offset: int | None = None
@@ -1726,22 +1732,24 @@ class ServersSubusersService:
 class ServersService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.activity = ServersActivityService(client)
-        self.allocations = ServersAllocationsService(client)
-        self.backups = ServersBackupsService(client)
-        self.console = ServersConsoleService(client)
-        self.databases = ServersDatabasesService(client)
-        self.domain = ServersDomainService(client)
-        self.files = ServersFilesService(client)
-        self.folders = ServersFoldersService(client)
-        self.invites = ServersInvitesService(client)
-        self.minecraft_installer = ServersMinecraftInstallerService(client)
-        self.operations = ServersOperationsService(client)
-        self.power = ServersPowerService(client)
-        self.schedules = ServersSchedulesService(client)
-        self.sftp = ServersSftpService(client)
-        self.startup = ServersStartupService(client)
-        self.subusers = ServersSubusersService(client)
+        self.activity: ServersActivityService = ServersActivityService(client)
+        self.allocations: ServersAllocationsService = ServersAllocationsService(client)
+        self.backups: ServersBackupsService = ServersBackupsService(client)
+        self.console: ServersConsoleService = ServersConsoleService(client)
+        self.databases: ServersDatabasesService = ServersDatabasesService(client)
+        self.domain: ServersDomainService = ServersDomainService(client)
+        self.files: ServersFilesService = ServersFilesService(client)
+        self.folders: ServersFoldersService = ServersFoldersService(client)
+        self.invites: ServersInvitesService = ServersInvitesService(client)
+        self.minecraft_installer: ServersMinecraftInstallerService = (
+            ServersMinecraftInstallerService(client)
+        )
+        self.operations: ServersOperationsService = ServersOperationsService(client)
+        self.power: ServersPowerService = ServersPowerService(client)
+        self.schedules: ServersSchedulesService = ServersSchedulesService(client)
+        self.sftp: ServersSftpService = ServersSftpService(client)
+        self.startup: ServersStartupService = ServersStartupService(client)
+        self.subusers: ServersSubusersService = ServersSubusersService(client)
 
     def list(
         self,
@@ -1895,7 +1903,9 @@ class TicketsMessagesAttachmentsService:
 class TicketsMessagesService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.attachments = TicketsMessagesAttachmentsService(client)
+        self.attachments: TicketsMessagesAttachmentsService = (
+            TicketsMessagesAttachmentsService(client)
+        )
 
     def list(
         self, ticket_id: str, *, before: str | None = None, limit: int | None = None
@@ -1942,7 +1952,7 @@ class TicketsMessagesService:
 class TicketsService:
     def __init__(self, client: Any) -> None:
         self._client: Any = client
-        self.messages = TicketsMessagesService(client)
+        self.messages: TicketsMessagesService = TicketsMessagesService(client)
 
     def list(
         self, *, limit: int | None = None, offset: int | None = None
@@ -2033,8 +2043,8 @@ class TicketsService:
 class _GeneratedServicesMixin:
     def __init__(self, client: Any = None) -> None:
         c = client if client is not None else self
-        self.game_features = GameFeaturesService(c)
-        self.games = GamesService(c)
-        self.order = OrderService(c)
-        self.servers = ServersService(c)
-        self.tickets = TicketsService(c)
+        self.game_features: GameFeaturesService = GameFeaturesService(c)
+        self.games: GamesService = GamesService(c)
+        self.order: OrderService = OrderService(c)
+        self.servers: ServersService = ServersService(c)
+        self.tickets: TicketsService = TicketsService(c)

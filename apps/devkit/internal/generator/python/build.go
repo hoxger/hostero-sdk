@@ -29,7 +29,7 @@ func Build(source contract.Document) (Document, error) {
 		return Document{}, err
 	}
 	operations := buildOperations(source.Operations)
-	resources, pages, bindings, resourceRefs, err := buildResources(source, models, symbols)
+	resourceKinds, resources, pages, bindings, resourceRefs, err := buildResources(source, models, symbols)
 	if err != nil {
 		return Document{}, err
 	}
@@ -38,7 +38,7 @@ func Build(source contract.Document) (Document, error) {
 		return Document{}, err
 	}
 
-	exports := make([]string, 0, len(enums)+len(models)+len(aliases)+len(services)+len(resources)+len(pages)+3)
+	exports := make([]string, 0, len(enums)+len(models)+len(aliases)+len(services)+len(resourceKinds)+len(resources)+len(pages)+3)
 	for _, enum := range enums {
 		exports = append(exports, enum.Name)
 	}
@@ -51,6 +51,9 @@ func Build(source contract.Document) (Document, error) {
 	}
 	for _, service := range services {
 		exports = append(exports, service.Name)
+	}
+	for _, resourceKind := range resourceKinds {
+		exports = append(exports, resourceKind.HandleName)
 	}
 	for _, resource := range resources {
 		exports = append(exports, resource.Name)
@@ -65,7 +68,7 @@ func Build(source contract.Document) (Document, error) {
 		{
 			Kind:    ModuleInit,
 			Path:    "__init__.py",
-			Imports: initModuleImports(enums, models, aliases, services, resources, pages),
+			Imports: initModuleImports(enums, models, aliases, services, resourceKinds, resources, pages),
 			Exports: exports,
 		},
 		{
@@ -120,12 +123,18 @@ func Build(source contract.Document) (Document, error) {
 		})
 	}
 	if len(resources) != 0 || len(pages) != 0 {
+		serviceTypes := make(map[string]struct{})
+		for _, resourceKind := range resourceKinds {
+			serviceTypes[resourceKind.ServiceClass] = struct{}{}
+		}
 		modules = append(modules, Module{
-			Kind:      ModuleResources,
-			Path:      "resources.py",
-			Imports:   resourceModuleImports(resourceRefs),
-			Resources: resources,
-			Pages:     pages,
+			Kind:          ModuleResources,
+			Path:          "resources.py",
+			Imports:       resourceModuleImports(resourceRefs),
+			ResourceKinds: resourceKinds,
+			Resources:     resources,
+			Pages:         pages,
+			ServiceTypes:  sortedNames(serviceTypes),
 		})
 	}
 	return Document{Modules: modules}, nil
@@ -136,11 +145,11 @@ type resourceBindings struct {
 	pages  map[string]string
 }
 
-func buildResources(source contract.Document, models []Model, symbols symbols) ([]Resource, []ResourcePage, resourceBindings, typeReferences, error) {
+func buildResources(source contract.Document, models []Model, symbols symbols) ([]ResourceKind, []Resource, []ResourcePage, resourceBindings, typeReferences, error) {
 	bindings := resourceBindings{models: make(map[string]string), pages: make(map[string]string)}
 	refs := typeReferences{models: make(map[string]struct{}), enums: make(map[string]struct{}), aliases: make(map[string]struct{})}
 	if len(source.Resources) == 0 {
-		return nil, nil, bindings, refs, nil
+		return nil, nil, nil, bindings, refs, nil
 	}
 	modelsBySource := make(map[string]Model, len(models))
 	for _, sourceModel := range source.Models {
@@ -152,35 +161,67 @@ func buildResources(source contract.Document, models []Model, symbols symbols) (
 			}
 		}
 	}
+	resourceKinds := make([]ResourceKind, 0, len(source.Resources))
+	resourceKindByName := make(map[string]int, len(source.Resources))
 	resources := make([]Resource, 0, len(source.Resources))
-	kindMethods := make(map[string]map[string]struct{})
+	resourcesByModel := make(map[string]int, len(source.Resources))
 	kindName := make(map[string]string)
 	for _, sourceResource := range source.Resources {
 		model, found := modelsBySource[sourceResource.Model]
 		if !found {
-			return nil, nil, bindings, refs, fmt.Errorf("resource model %q has no Python model", sourceResource.Model)
+			return nil, nil, nil, bindings, refs, fmt.Errorf("resource model %q has no Python model", sourceResource.Model)
 		}
 		baseName, err := className(sourceResource.Kind)
 		if err != nil {
-			return nil, nil, bindings, refs, fmt.Errorf("resource kind %q: %w", sourceResource.Kind, err)
+			return nil, nil, nil, bindings, refs, fmt.Errorf("resource kind %q: %w", sourceResource.Kind, err)
 		}
 		name := strings.TrimSuffix(model.Name, "Resource")
-		if strings.HasSuffix(name, "Detail") {
-			name = strings.TrimSuffix(name, "Detail")
+		if before, ok :=strings.CutSuffix(name, "Detail"); ok  {
+			name = before
 		}
 		if name == "" {
 			name = baseName
 		}
 		bindings.models[sourceResource.Model] = name
 		kindName[sourceResource.Kind] = baseName
-		if kindMethods[sourceResource.Kind] == nil {
-			kindMethods[sourceResource.Kind] = make(map[string]struct{})
+		serviceClass, err := serviceClassName(sourceResource.Group)
+		if err != nil {
+			return nil, nil, nil, bindings, refs, err
+		}
+		for _, field := range model.Fields {
+			refs.merge(referencesForField(field))
+		}
+		idField, found := findFieldByJSONName(model.Fields, sourceResource.IDField)
+		if !found {
+			return nil, nil, nil, bindings, refs, fmt.Errorf("resource model %q id field %q has no Python field", sourceResource.Model, sourceResource.IDField)
 		}
 		refs.models[model.Name] = struct{}{}
-		resources = append(resources, Resource{Name: name, ModelName: model.Name, Fields: model.Fields})
+		kindIndex, found := resourceKindByName[sourceResource.Kind]
+		if !found {
+			resourceKinds = append(resourceKinds, ResourceKind{
+				Name:         baseName,
+				HandleName:   baseName + "Handle",
+				TypeVariable: "T" + baseName + "Data",
+				IDField:      idField.Name,
+				ServiceClass: serviceClass,
+			})
+			kindIndex = len(resourceKinds) - 1
+			resourceKindByName[sourceResource.Kind] = kindIndex
+		} else if resourceKinds[kindIndex].IDField != idField.Name || resourceKinds[kindIndex].ServiceClass != serviceClass {
+			return nil, nil, nil, bindings, refs, fmt.Errorf("resource kind %q has incompatible generated declarations", sourceResource.Kind)
+		}
+		resourceKinds[kindIndex].ModelNames = append(resourceKinds[kindIndex].ModelNames, model.Name)
+		resources = append(resources, Resource{Name: name, ModelName: model.Name, HandleName: resourceKinds[kindIndex].HandleName, Fields: model.Fields})
+		resourcesByModel[sourceResource.Model] = len(resources) - 1
+	}
+	resourceDefinitions := make(map[string]contract.Resource, len(resourceKinds))
+	for _, sourceResource := range source.Resources {
+		if _, found := resourceDefinitions[sourceResource.Kind]; !found {
+			resourceDefinitions[sourceResource.Kind] = sourceResource
+		}
 	}
 	for _, operation := range source.Operations {
-		for _, sourceResource := range source.Resources {
+		for kind, sourceResource := range resourceDefinitions {
 			if !containsString(operation.TargetKinds, sourceResource.Kind) || !hasPrefix(operation.ClientMetadata.Group, sourceResource.Group) {
 				continue
 			}
@@ -194,25 +235,32 @@ func buildResources(source contract.Document, models []Model, symbols symbols) (
 			if !foundParameter {
 				continue
 			}
-			parts := append([]string(nil), operation.ClientMetadata.Group[len(sourceResource.Group):]...)
-			method, err := methodName(operation.ClientMetadata.Method)
+			method, methodRefs, err := buildServiceMethod(operation, symbols, bindings)
 			if err != nil {
-				return nil, nil, bindings, refs, err
+				return nil, nil, nil, bindings, refs, err
 			}
-			kindMethods[sourceResource.Kind][strings.Join(append(parts, method), ".")] = struct{}{}
+			refs.merge(methodRefs)
+			method.PathParams = removeBoundPathParameter(method.PathParams, sourceResource.PathParameter)
+			resourceIndex, found := resourceKindByName[kind]
+			if !found {
+				return nil, nil, nil, bindings, refs, fmt.Errorf("resource kind %q has no generated handle", kind)
+			}
+			if err := insertBoundMethod(&resourceKinds[resourceIndex], operation.ClientMetadata.Group[len(sourceResource.Group):], BoundMethod{
+				Method:      method,
+				ServicePath: append([]string(nil), operation.ClientMetadata.Group[len(sourceResource.Group):]...),
+			}); err != nil {
+				return nil, nil, nil, bindings, refs, err
+			}
 		}
 	}
+	for index := range resourceKinds {
+		sort.Strings(resourceKinds[index].ModelNames)
+		sortBoundServices(&resourceKinds[index])
+		resourceKinds[index].BoundServices = flattenBoundServices(resourceKinds[index].SubServices)
+		resourceKinds[index].Fields = sharedResourceFields(resourcesForKind(resources, resourceKinds[index].HandleName))
+	}
 	for index := range resources {
-		for _, sourceResource := range source.Resources {
-			if bindings.models[sourceResource.Model] != resources[index].Name {
-				continue
-			}
-			for method := range kindMethods[sourceResource.Kind] {
-				resources[index].BoundMethods = append(resources[index].BoundMethods, method)
-			}
-			sort.Strings(resources[index].BoundMethods)
-			break
-		}
+		resources[index].Fields = fieldsOutside(resources[index].Fields, fieldsForHandle(resourceKinds, resources[index].HandleName))
 	}
 	var pages []ResourcePage
 	for _, model := range source.Models {
@@ -235,11 +283,198 @@ func buildResources(source contract.Document, models []Model, symbols symbols) (
 				pageName := kindName[sourceResource.Kind] + "Page"
 				bindings.pages[model.Name] = pageName
 				refs.models[pageModel.Name] = struct{}{}
-				pages = append(pages, ResourcePage{Name: pageName, ModelName: pageModel.Name, ItemName: itemName, Fields: pageModel.Fields})
+				resourceIndex, found := resourceKindByName[sourceResource.Kind]
+				if !found {
+					return nil, nil, nil, bindings, refs, fmt.Errorf("resource kind %q has no generated handle", sourceResource.Kind)
+				}
+				pages = append(pages, ResourcePage{Name: pageName, ModelName: pageModel.Name, ItemName: itemName, Fields: pageModel.Fields, ServiceClass: resourceKinds[resourceIndex].ServiceClass})
 			}
 		}
 	}
-	return resources, pages, bindings, refs, nil
+	return resourceKinds, resources, pages, bindings, refs, nil
+}
+
+func resourcesForKind(resources []Resource, handleName string) []Resource {
+	matching := make([]Resource, 0)
+	for _, resource := range resources {
+		if resource.HandleName == handleName {
+			matching = append(matching, resource)
+		}
+	}
+	return matching
+}
+
+func fieldsForHandle(resourceKinds []ResourceKind, handleName string) []Field {
+	for _, resourceKind := range resourceKinds {
+		if resourceKind.HandleName == handleName {
+			return resourceKind.Fields
+		}
+	}
+	return nil
+}
+
+func sharedResourceFields(resources []Resource) []Field {
+	if len(resources) == 0 {
+		return nil
+	}
+	shared := make([]Field, 0, len(resources[0].Fields))
+	for _, candidate := range resources[0].Fields {
+		isShared := true
+		for _, resource := range resources[1:] {
+			field, found := findFieldByJSONName(resource.Fields, candidate.JSONName)
+			if !found || field != candidate {
+				isShared = false
+				break
+			}
+		}
+		if isShared {
+			shared = append(shared, candidate)
+		}
+	}
+	return shared
+}
+
+func fieldsOutside(fields []Field, excluded []Field) []Field {
+	result := make([]Field, 0, len(fields))
+	for _, field := range fields {
+		isExcluded := false
+		for _, excludedField := range excluded {
+			if field == excludedField {
+				isExcluded = true
+				break
+			}
+		}
+		if !isExcluded {
+			result = append(result, field)
+		}
+	}
+	return result
+}
+
+func findFieldByJSONName(fields []Field, jsonName string) (Field, bool) {
+	for _, field := range fields {
+		if field.JSONName == jsonName {
+			return field, true
+		}
+	}
+	return Field{}, false
+}
+
+func removeBoundPathParameter(parameters []MethodParam, parameterName string) []MethodParam {
+	result := make([]MethodParam, 0, len(parameters)-1)
+	for _, parameter := range parameters {
+		if parameter.JSONName != parameterName {
+			result = append(result, parameter)
+		}
+	}
+	return result
+}
+
+func insertBoundMethod(resource *ResourceKind, path []string, method BoundMethod) error {
+	if len(path) == 0 {
+		resource.Methods = append(resource.Methods, method)
+		return nil
+	}
+	segment := path[0]
+	name, err := groupFieldName(segment)
+	if err != nil {
+		return err
+	}
+	for index := range resource.SubServices {
+		if resource.SubServices[index].Name == name {
+			return insertBoundMethodIntoService(&resource.SubServices[index], path[1:], method, resource.Name)
+		}
+	}
+	className, err := boundServiceClassName(resource.Name, path[:1])
+	if err != nil {
+		return err
+	}
+	resource.SubServices = append(resource.SubServices, BoundService{
+		Name:             name,
+		ClassName:        className,
+		RootServiceClass: resource.ServiceClass,
+		ServicePath:      append([]string(nil), path[:1]...),
+	})
+	return insertBoundMethodIntoService(&resource.SubServices[len(resource.SubServices)-1], path[1:], method, resource.Name)
+}
+
+func insertBoundMethodIntoService(service *BoundService, remaining []string, method BoundMethod, resourceName string) error {
+	if len(remaining) == 0 {
+		service.Methods = append(service.Methods, method)
+		return nil
+	}
+	segment := remaining[0]
+	name, err := groupFieldName(segment)
+	if err != nil {
+		return err
+	}
+	for index := range service.SubServices {
+		if service.SubServices[index].Name == name {
+			return insertBoundMethodIntoService(&service.SubServices[index], remaining[1:], method, resourceName)
+		}
+	}
+	path := append(append([]string(nil), service.ServicePath...), segment)
+	className, err := boundServiceClassName(resourceName, path)
+	if err != nil {
+		return err
+	}
+	service.SubServices = append(service.SubServices, BoundService{
+		Name:             name,
+		ClassName:        className,
+		RootServiceClass: service.RootServiceClass,
+		ServicePath:      path,
+	})
+	return insertBoundMethodIntoService(&service.SubServices[len(service.SubServices)-1], remaining[1:], method, resourceName)
+}
+
+func boundServiceClassName(resourceName string, path []string) (string, error) {
+	name, err := serviceClassName(path)
+	if err != nil {
+		return "", err
+	}
+	return resourceName + strings.TrimSuffix(name, "Service"), nil
+}
+
+func sortBoundServices(resource *ResourceKind) {
+	sort.Slice(resource.Methods, func(left, right int) bool {
+		return resource.Methods[left].Method.Name < resource.Methods[right].Method.Name
+	})
+	sort.Slice(resource.SubServices, func(left, right int) bool { return resource.SubServices[left].Name < resource.SubServices[right].Name })
+	for index := range resource.SubServices {
+		sortBoundService(&resource.SubServices[index])
+	}
+}
+
+func sortBoundService(service *BoundService) {
+	sort.Slice(service.Methods, func(left, right int) bool {
+		return service.Methods[left].Method.Name < service.Methods[right].Method.Name
+	})
+	sort.Slice(service.SubServices, func(left, right int) bool { return service.SubServices[left].Name < service.SubServices[right].Name })
+	for index := range service.SubServices {
+		sortBoundService(&service.SubServices[index])
+	}
+}
+
+func flattenBoundServices(services []BoundService) []BoundService {
+	var flat []BoundService
+	for _, service := range services {
+		flat = append(flat, service)
+		flat = append(flat, flattenBoundServices(service.SubServices)...)
+	}
+	return flat
+}
+
+func referencesForField(field Field) typeReferences {
+	refs := typeReferences{models: make(map[string]struct{}), enums: make(map[string]struct{}), aliases: make(map[string]struct{})}
+	switch field.CodecKind {
+	case CodecModel, CodecListModel, CodecMapModel:
+		refs.models[field.TargetType] = struct{}{}
+	case CodecEnum, CodecListEnum, CodecMapEnum:
+		refs.enums[field.TargetType] = struct{}{}
+	case CodecAlias:
+		refs.aliases[field.TargetType] = struct{}{}
+	}
+	return refs
 }
 
 func hasPrefix(values []string, prefix []string) bool {
@@ -1057,15 +1292,27 @@ func resourceModuleImports(refs typeReferences) []Import {
 	imports := []Import{
 		{Group: ImportFuture, Module: "__future__", Names: []string{"annotations"}},
 		{Group: ImportStandard, Module: "dataclasses", Names: []string{"dataclass", "field"}},
-		{Group: ImportStandard, Module: "typing", Names: []string{"Any"}},
+		{Group: ImportStandard, Module: "typing", Names: []string{"TYPE_CHECKING", "Generic", "TypeVar"}},
+	}
+	if refs.usesAny {
+		imports[2].Names = append(imports[2].Names, "Any")
+	}
+	if refs.usesBuiltins {
+		imports = append(imports, Import{Group: ImportStandard, Module: "builtins"})
+	}
+	if enumNames := refs.enumNames(); len(enumNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: enumNames})
 	}
 	if modelNames := refs.modelNames(); len(modelNames) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".models", Names: modelNames})
 	}
+	if aliasNames := refs.aliasNames(); len(aliasNames) != 0 {
+		imports = append(imports, Import{Group: ImportLocal, Module: ".types", Names: aliasNames})
+	}
 	return imports
 }
 
-func initModuleImports(enums []Enum, models []Model, aliases []Alias, services []ServiceClass, resources []Resource, pages []ResourcePage) []Import {
+func initModuleImports(enums []Enum, models []Model, aliases []Alias, services []ServiceClass, resourceKinds []ResourceKind, resources []Resource, pages []ResourcePage) []Import {
 	imports := make([]Import, 0, 5)
 	if names := namesOfEnums(enums); len(names) != 0 {
 		imports = append(imports, Import{Group: ImportLocal, Module: ".enums", Names: names})
@@ -1087,7 +1334,10 @@ func initModuleImports(enums []Enum, models []Model, aliases []Alias, services [
 		imports = append(imports, Import{Group: ImportLocal, Module: ".services", Names: serviceNames})
 	}
 	if len(resources) != 0 || len(pages) != 0 {
-		names := make([]string, 0, len(resources)+len(pages))
+		names := make([]string, 0, len(resourceKinds)+len(resources)+len(pages))
+		for _, resourceKind := range resourceKinds {
+			names = append(names, resourceKind.HandleName)
+		}
 		for _, resource := range resources {
 			names = append(names, resource.Name)
 		}

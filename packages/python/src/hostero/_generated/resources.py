@@ -5,364 +5,1097 @@
 # sha256: d5d7834ea8211ad101397d1e5fcd68696438447e2c53a3b5bdbc84941af59db4
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from .enums import GameServerStatus, ServerAvailability, ServerPermission
 from .models import (
+    AxonOperationResource,
+    CustomerGameAllocationResource,
+    FileCompressRequest,
+    FileContentsResource,
+    FileCreateDirectoriesRequest,
+    FileCreateDirectoryRequest,
+    FileDecompressRequest,
+    FileDeleteRequest,
+    FileListResource,
+    FileRenameRequest,
+    FileSearchResource,
+    FileUrlResource,
+    GameServerBackupCreateRequest,
+    GameServerBackupResource,
+    GameServerBackupRestoreProgressResource,
+    GameServerBackupRestoreRequest,
+    GameServerBackupSettingsResource,
+    GameServerBackupSettingsUpdateRequest,
+    GameServerCellSummaryResource,
+    GameServerConsoleTokenResource,
+    GameServerDatabaseCreateRequest,
+    GameServerDatabaseDeleteRequest,
+    GameServerDatabaseListItemResource,
+    GameServerDatabaseResource,
     GameServerDetailResource,
+    GameServerFeatureResource,
+    GameServerGameSummaryResource,
+    GameServerInviteCreateRequest,
+    GameServerLimitsResource,
     GameServerListItemResource,
+    GameServerListLimitsResource,
+    GameServerListPrimaryResource,
+    GameServerNodeSummaryResource,
+    GameServerOfferSummaryResource,
+    GameServerOperationProgressResource,
+    GameServerScheduleCreateRequest,
+    GameServerScheduleResource,
+    GameServerScheduleRunResource,
+    GameServerScheduleUpdateRequest,
+    GameServerSftpCredentialsResource,
+    GameServerStartupSettingsResource,
+    GameServerStartupUpdateRequest,
+    GameServerSubuserResource,
+    GameServerSubuserUpdateRequest,
+    GameServerUpdateRequest,
+    ManagedDomainOptionResource,
+    MinecraftInstallerReinstallRequest,
+    PaginatedResponseAxonOperationResource,
+    PaginatedResponseGameServerActivityResource,
     PaginatedResponseGameServerListItemResource,
+    PaginatedResponseGameServerScheduleResource,
+    PaginatedResponseGameServerScheduleRunResource,
+    RedirectResponse,
+    ServerDomainResource,
+    ServerInviteResource,
+    ServerSubdomainRequest,
 )
+from .types import JsonObjectOutput
+
+if TYPE_CHECKING:
+    from .services import ServersService
 
 
-class _BoundService:
-    def __init__(
-        self, service: Any, resource_id: str, path: str, allowed: frozenset[str]
-    ) -> None:
+class GameServerActivity:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
         self._service = service
         self._resource_id = resource_id
-        self._path = path
-        self._allowed = allowed
 
-    def __getattr__(self, name: str) -> Any:
-        path = name if not self._path else self._path + "." + name
-        value = getattr(self._service, name)
-        if callable(value):
-            if path not in self._allowed:
-                raise AttributeError(name)
+    def list(
+        self,
+        *,
+        actions: builtins.list[str] | None = None,
+        days: int | None = None,
+        from_date: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        sort: str | None = None,
+        to_date: str | None = None,
+    ) -> PaginatedResponseGameServerActivityResource:
+        """List game server activity.
 
-            def bound(*args: Any, **kwargs: Any) -> Any:
-                return value(self._resource_id, *args, **kwargs)
+        Required permissions:
+            - `game_servers.activity.view`
+        """
+        return self._service.activity.list(
+            self._resource_id,
+            actions=actions,
+            days=days,
+            from_date=from_date,
+            limit=limit,
+            offset=offset,
+            sort=sort,
+            to_date=to_date,
+        )
 
-            return bound
-        prefix = path + "."
-        if not any(method.startswith(prefix) for method in self._allowed):
-            raise AttributeError(name)
-        return _BoundService(value, self._resource_id, path, self._allowed)
+
+class GameServerAllocations:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def list(self) -> builtins.list[CustomerGameAllocationResource]:
+        """List network endpoints visible to the authenticated server member.
+
+        Required permissions:
+            - `game_servers.allocations.view`
+        """
+        return self._service.allocations.list(self._resource_id)
 
 
-_GameServer_BOUND_METHODS = frozenset(
-    {
-        "activity.list",
-        "allocations.list",
-        "backups.create",
-        "backups.delete",
-        "backups.download",
-        "backups.get_settings",
-        "backups.list",
-        "backups.restores.create",
-        "backups.restores.get_active",
-        "backups.update_settings",
-        "console.get_token",
-        "databases.create",
-        "databases.delete",
-        "databases.get",
-        "databases.list",
-        "databases.reset_password",
-        "domain.delete",
-        "domain.get",
-        "domain.list_options",
-        "domain.set_subdomain",
-        "files.compress.create",
-        "files.contents.get",
-        "files.contents.write",
-        "files.create_directories",
-        "files.create_directory",
-        "files.decompress.cancel",
-        "files.decompress.create",
-        "files.decompress.get",
-        "files.decompress.get_active",
-        "files.delete",
-        "files.get_download_url",
-        "files.list",
-        "files.rename",
-        "files.search.cancel",
-        "files.search.get",
-        "get",
-        "invites.create",
-        "invites.delete",
-        "invites.list",
-        "minecraft-installer.list_builds",
-        "minecraft-installer.list_engines",
-        "minecraft-installer.list_versions",
-        "minecraft-installer.reinstall",
-        "operations.cancel",
-        "operations.get",
-        "operations.list",
-        "power.kill",
-        "power.reinstall",
-        "power.restart",
-        "power.start",
-        "power.stop",
-        "schedules.create",
-        "schedules.delete",
-        "schedules.get",
-        "schedules.list",
-        "schedules.run",
-        "schedules.runs.list",
-        "schedules.update",
-        "sftp.get_credentials",
-        "sftp.rotate_credentials",
-        "startup.get",
-        "startup.update",
-        "subusers.delete",
-        "subusers.list",
-        "subusers.update",
-        "update",
-    }
+class GameServerBackups:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    @property
+    def restores(self) -> GameServerBackupsRestores:
+        return GameServerBackupsRestores(self._service, self._resource_id)
+
+    def create(
+        self,
+        *,
+        body: GameServerBackupCreateRequest | None | dict[str, Any] | None = None,
+    ) -> GameServerBackupResource:
+        """Create backup.
+
+        Required permissions:
+            - `game_servers.backups.create`
+        """
+        return self._service.backups.create(self._resource_id, body=body)
+
+    def delete(self, backup_id: str) -> None:
+        """Delete backup.
+
+        Required permissions:
+            - `game_servers.backups.delete`
+        """
+        return self._service.backups.delete(self._resource_id, backup_id)
+
+    def download(self, backup_id: str, *, component_id: str) -> RedirectResponse:
+        """Redirect an authorized browser to one selected backup component.
+
+        Required permissions:
+            - `game_servers.backups.download`
+        """
+        return self._service.backups.download(
+            self._resource_id, backup_id, component_id=component_id
+        )
+
+    def get_settings(self) -> GameServerBackupSettingsResource:
+        """Get backup settings.
+
+        Required permissions:
+            - `game_servers.backups.view`
+        """
+        return self._service.backups.get_settings(self._resource_id)
+
+    def list(self) -> builtins.list[GameServerBackupResource]:
+        """List backups.
+
+        Required permissions:
+            - `game_servers.backups.view`
+        """
+        return self._service.backups.list(self._resource_id)
+
+    def update_settings(
+        self, *, body: GameServerBackupSettingsUpdateRequest | dict[str, Any]
+    ) -> GameServerBackupSettingsResource:
+        """Update backup settings.
+
+        Required permissions:
+            - `game_servers.backups.create`
+        """
+        return self._service.backups.update_settings(self._resource_id, body=body)
+
+
+class GameServerBackupsRestores:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def create(
+        self, backup_id: str, *, body: GameServerBackupRestoreRequest | dict[str, Any]
+    ) -> dict[str, str]:
+        """Restore backup.
+
+        Required permissions:
+            - `game_servers.backups.restore`
+        """
+        return self._service.backups.restores.create(
+            self._resource_id, backup_id, body=body
+        )
+
+    def get_active(self) -> GameServerBackupRestoreProgressResource | None:
+        """Get active restore.
+
+        Required permissions:
+            - `game_servers.view`
+        """
+        return self._service.backups.restores.get_active(self._resource_id)
+
+
+class GameServerConsole:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def get_token(self) -> GameServerConsoleTokenResource:
+        """Return a short-lived WebSocket token for the server's console.
+
+        Required permissions:
+            - `game_servers.console.access`
+        """
+        return self._service.console.get_token(self._resource_id)
+
+
+class GameServerDatabases:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def create(
+        self, *, body: GameServerDatabaseCreateRequest | dict[str, Any]
+    ) -> GameServerDatabaseResource:
+        """Create database.
+
+        Required permissions:
+            - `game_servers.databases.create`
+        """
+        return self._service.databases.create(self._resource_id, body=body)
+
+    def delete(
+        self,
+        database_id: str,
+        *,
+        body: GameServerDatabaseDeleteRequest | dict[str, Any],
+    ) -> None:
+        """Delete database.
+
+        Required permissions:
+            - `game_servers.databases.delete`
+        """
+        return self._service.databases.delete(self._resource_id, database_id, body=body)
+
+    def get(self, database_id: str) -> GameServerDatabaseResource:
+        """Get database.
+
+        Required permissions:
+            - `game_servers.databases.credentials.view`
+        """
+        return self._service.databases.get(self._resource_id, database_id)
+
+    def list(self) -> builtins.list[GameServerDatabaseListItemResource]:
+        """List databases.
+
+        Required permissions:
+            - `game_servers.databases.view`
+        """
+        return self._service.databases.list(self._resource_id)
+
+    def reset_password(self, database_id: str) -> GameServerDatabaseResource:
+        """Reset database password.
+
+        Required permissions:
+            - `game_servers.databases.credentials.reset`
+        """
+        return self._service.databases.reset_password(self._resource_id, database_id)
+
+
+class GameServerDomain:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def delete(self) -> None:
+        """Delete server domain.
+
+        Required permissions:
+            - `game_servers.domains.update`
+        """
+        return self._service.domain.delete(self._resource_id)
+
+    def get(self) -> ServerDomainResource | None:
+        """Get server domain.
+
+        Required permissions:
+            - `game_servers.domains.view`
+        """
+        return self._service.domain.get(self._resource_id)
+
+    def list_options(self) -> builtins.list[ManagedDomainOptionResource]:
+        """List server domain options.
+
+        Required permissions:
+            - `game_servers.domains.view`
+        """
+        return self._service.domain.list_options(self._resource_id)
+
+    def set_subdomain(
+        self, *, body: ServerSubdomainRequest | dict[str, Any]
+    ) -> ServerDomainResource:
+        """Set server subdomain.
+
+        Required permissions:
+            - `game_servers.domains.update`
+        """
+        return self._service.domain.set_subdomain(self._resource_id, body=body)
+
+
+class GameServerFiles:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    @property
+    def compress(self) -> GameServerFilesCompress:
+        return GameServerFilesCompress(self._service, self._resource_id)
+
+    @property
+    def contents(self) -> GameServerFilesContents:
+        return GameServerFilesContents(self._service, self._resource_id)
+
+    @property
+    def decompress(self) -> GameServerFilesDecompress:
+        return GameServerFilesDecompress(self._service, self._resource_id)
+
+    @property
+    def search(self) -> GameServerFilesSearch:
+        return GameServerFilesSearch(self._service, self._resource_id)
+
+    def create_directories(
+        self, *, body: FileCreateDirectoriesRequest | dict[str, Any]
+    ) -> None:
+        """Create directories.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.create_directories(self._resource_id, body=body)
+
+    def create_directory(
+        self, *, body: FileCreateDirectoryRequest | dict[str, Any]
+    ) -> None:
+        """Create directory.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.create_directory(self._resource_id, body=body)
+
+    def delete(self, *, body: FileDeleteRequest | dict[str, Any]) -> None:
+        """Delete files.
+
+        Required permissions:
+            - `game_servers.files.delete`
+        """
+        return self._service.files.delete(self._resource_id, body=body)
+
+    def get_download_url(self, *, file: str) -> FileUrlResource:
+        """Get download url.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.get_download_url(self._resource_id, file=file)
+
+    def list(
+        self,
+        *,
+        directory: str | None = None,
+        page_size: int | None = None,
+        page_token: str | None = None,
+        sort: str | None = None,
+        sort_desc: bool | None = None,
+    ) -> FileListResource:
+        """List files.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.list(
+            self._resource_id,
+            directory=directory,
+            page_size=page_size,
+            page_token=page_token,
+            sort=sort,
+            sort_desc=sort_desc,
+        )
+
+    def rename(self, *, body: FileRenameRequest | dict[str, Any]) -> None:
+        """Rename file.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.rename(self._resource_id, body=body)
+
+
+class GameServerFilesCompress:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def create(
+        self, *, body: FileCompressRequest | dict[str, Any]
+    ) -> AxonOperationResource:
+        """Compress files.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.compress.create(self._resource_id, body=body)
+
+
+class GameServerFilesContents:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def get(self, *, file: str) -> FileContentsResource:
+        """Read file contents.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.contents.get(self._resource_id, file=file)
+
+    def write(self, *, file: str, content: bytes | str) -> None:
+        """Write file contents.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.contents.write(
+            self._resource_id, file=file, content=content
+        )
+
+
+class GameServerFilesDecompress:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def cancel(self, operation_id: str) -> AxonOperationResource:
+        """Cancel decompress operation.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.decompress.cancel(self._resource_id, operation_id)
+
+    def create(
+        self, *, body: FileDecompressRequest | dict[str, Any]
+    ) -> AxonOperationResource:
+        """Decompress file.
+
+        Required permissions:
+            - `game_servers.files.write`
+        """
+        return self._service.files.decompress.create(self._resource_id, body=body)
+
+    def get(self, operation_id: str) -> AxonOperationResource:
+        """Get decompress operation.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.decompress.get(self._resource_id, operation_id)
+
+    def get_active(self) -> AxonOperationResource | None:
+        """Get active decompress operation.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.decompress.get_active(self._resource_id)
+
+
+class GameServerFilesSearch:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def cancel(self, search_id: str) -> None:
+        """Cancel file search.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.search.cancel(self._resource_id, search_id)
+
+    def get(
+        self,
+        *,
+        category: str | None = None,
+        directory: str | None = None,
+        extension: str | None = None,
+        limit: int | None = None,
+        max_size: int | None = None,
+        min_size: int | None = None,
+        modified_after: int | None = None,
+        modified_before: int | None = None,
+        offset: int | None = None,
+        query: str | None = None,
+        recursive: bool | None = None,
+        search_id: str,
+        sort: str | None = None,
+        sort_desc: bool | None = None,
+        type: str | None = None,
+    ) -> FileSearchResource:
+        """Search files.
+
+        Required permissions:
+            - `game_servers.files.read`
+        """
+        return self._service.files.search.get(
+            self._resource_id,
+            category=category,
+            directory=directory,
+            extension=extension,
+            limit=limit,
+            max_size=max_size,
+            min_size=min_size,
+            modified_after=modified_after,
+            modified_before=modified_before,
+            offset=offset,
+            query=query,
+            recursive=recursive,
+            search_id=search_id,
+            sort=sort,
+            sort_desc=sort_desc,
+            type=type,
+        )
+
+
+class GameServerInvites:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def create(
+        self, *, body: GameServerInviteCreateRequest | dict[str, Any]
+    ) -> ServerInviteResource:
+        """Create server invite.
+
+        Required permissions:
+            - `game_servers.subusers.create`
+        """
+        return self._service.invites.create(self._resource_id, body=body)
+
+    def delete(self, invite_id: str) -> None:
+        """Revoke server invite.
+
+        Required permissions:
+            - `game_servers.subusers.delete`
+        """
+        return self._service.invites.delete(self._resource_id, invite_id)
+
+    def list(self) -> builtins.list[ServerInviteResource]:
+        """List server invites.
+
+        Required permissions:
+            - `game_servers.subusers.view`
+        """
+        return self._service.invites.list(self._resource_id)
+
+
+class GameServerMinecraftInstaller:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def list_builds(
+        self, engine: str, version: str, *, include_archived: bool | None = None
+    ) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft builds compatible with this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
+        return self._service.minecraft_installer.list_builds(
+            self._resource_id, engine, version, include_archived=include_archived
+        )
+
+    def list_engines(self) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft engines available for this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
+        return self._service.minecraft_installer.list_engines(self._resource_id)
+
+    def list_versions(
+        self,
+        engine: str,
+        *,
+        include_archived: bool | None = None,
+        search: str | None = None,
+    ) -> builtins.list[JsonObjectOutput]:
+        """List Minecraft versions compatible with this server's cell images.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
+        return self._service.minecraft_installer.list_versions(
+            self._resource_id, engine, include_archived=include_archived, search=search
+        )
+
+    def reinstall(
+        self, *, body: MinecraftInstallerReinstallRequest | dict[str, Any]
+    ) -> None:
+        """Reinstall Minecraft server.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
+        return self._service.minecraft_installer.reinstall(self._resource_id, body=body)
+
+
+class GameServerOperations:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def cancel(self, operation_id: str) -> AxonOperationResource:
+        """Cancel operation.
+
+        Required permissions:
+            - `game_servers.operations.cancel`
+        """
+        return self._service.operations.cancel(self._resource_id, operation_id)
+
+    def get(self, operation_id: str) -> AxonOperationResource:
+        """Get operation.
+
+        Required permissions:
+            - `game_servers.operations.view`
+        """
+        return self._service.operations.get(self._resource_id, operation_id)
+
+    def list(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> PaginatedResponseAxonOperationResource:
+        """List operations.
+
+        Required permissions:
+            - `game_servers.operations.view`
+        """
+        return self._service.operations.list(
+            self._resource_id, limit=limit, offset=offset
+        )
+
+
+class GameServerPower:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def kill(self) -> None:
+        """Force-kill the game server container.
+
+        Required permissions:
+            - `game_servers.power.kill`
+        """
+        return self._service.power.kill(self._resource_id)
+
+    def reinstall(self) -> None:
+        """Run the game server installer again without wiping server data.
+
+        Required permissions:
+            - `game_servers.power.reinstall`
+        """
+        return self._service.power.reinstall(self._resource_id)
+
+    def restart(self) -> None:
+        """Restart the game server container.
+
+        Required permissions:
+            - `game_servers.power.restart`
+        """
+        return self._service.power.restart(self._resource_id)
+
+    def start(self) -> None:
+        """Start the game server container.
+
+        Required permissions:
+            - `game_servers.power.start`
+        """
+        return self._service.power.start(self._resource_id)
+
+    def stop(self) -> None:
+        """Stop the game server container.
+
+        Required permissions:
+            - `game_servers.power.stop`
+        """
+        return self._service.power.stop(self._resource_id)
+
+
+class GameServerSchedules:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    @property
+    def runs(self) -> GameServerSchedulesRuns:
+        return GameServerSchedulesRuns(self._service, self._resource_id)
+
+    def create(
+        self, *, body: GameServerScheduleCreateRequest | dict[str, Any]
+    ) -> GameServerScheduleResource:
+        """Create schedule.
+
+        Required permissions:
+            - `game_servers.schedules.create`
+        """
+        return self._service.schedules.create(self._resource_id, body=body)
+
+    def delete(self, schedule_id: str) -> None:
+        """Delete schedule.
+
+        Required permissions:
+            - `game_servers.schedules.delete`
+        """
+        return self._service.schedules.delete(self._resource_id, schedule_id)
+
+    def get(self, schedule_id: str) -> GameServerScheduleResource:
+        """Get schedule.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
+        return self._service.schedules.get(self._resource_id, schedule_id)
+
+    def list(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> PaginatedResponseGameServerScheduleResource:
+        """List schedules.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
+        return self._service.schedules.list(
+            self._resource_id, limit=limit, offset=offset
+        )
+
+    def run(self, schedule_id: str) -> GameServerScheduleRunResource:
+        """Run schedule.
+
+        Required permissions:
+            - `game_servers.schedules.run`
+        """
+        return self._service.schedules.run(self._resource_id, schedule_id)
+
+    def update(
+        self,
+        schedule_id: str,
+        *,
+        body: GameServerScheduleUpdateRequest | dict[str, Any],
+    ) -> GameServerScheduleResource:
+        """Update schedule.
+
+        Required permissions:
+            - `game_servers.schedules.update`
+        """
+        return self._service.schedules.update(self._resource_id, schedule_id, body=body)
+
+
+class GameServerSchedulesRuns:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def list(
+        self, schedule_id: str, *, limit: int | None = None, offset: int | None = None
+    ) -> PaginatedResponseGameServerScheduleRunResource:
+        """List schedule runs.
+
+        Required permissions:
+            - `game_servers.schedules.view`
+        """
+        return self._service.schedules.runs.list(
+            self._resource_id, schedule_id, limit=limit, offset=offset
+        )
+
+
+class GameServerSftp:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def get_credentials(self) -> GameServerSftpCredentialsResource:
+        """Get sftp credentials.
+
+        Required permissions:
+            - `game_servers.sftp.access`
+        """
+        return self._service.sftp.get_credentials(self._resource_id)
+
+    def rotate_credentials(self) -> GameServerSftpCredentialsResource:
+        """Rotate sftp credentials.
+
+        Required permissions:
+            - `game_servers.sftp.access`
+        """
+        return self._service.sftp.rotate_credentials(self._resource_id)
+
+
+class GameServerStartup:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def get(self) -> GameServerStartupSettingsResource:
+        """Return startup settings and editable options for a server.
+
+        Required permissions:
+            - `game_servers.startup.view`
+        """
+        return self._service.startup.get(self._resource_id)
+
+    def update(
+        self, *, body: GameServerStartupUpdateRequest | dict[str, Any]
+    ) -> GameServerStartupSettingsResource:
+        """Update user-controlled startup parameters.
+
+        Required permissions:
+            - `game_servers.startup.update`
+        """
+        return self._service.startup.update(self._resource_id, body=body)
+
+
+class GameServerSubusers:
+    def __init__(self, service: "ServersService", resource_id: str) -> None:
+        self._service = service
+        self._resource_id = resource_id
+
+    def delete(self, access_id: str) -> None:
+        """Delete subuser.
+
+        Required permissions:
+            - `game_servers.subusers.delete`
+        """
+        return self._service.subusers.delete(self._resource_id, access_id)
+
+    def list(self) -> builtins.list[GameServerSubuserResource]:
+        """List subusers.
+
+        Required permissions:
+            - `game_servers.subusers.view`
+        """
+        return self._service.subusers.list(self._resource_id)
+
+    def update(
+        self, access_id: str, *, body: GameServerSubuserUpdateRequest | dict[str, Any]
+    ) -> GameServerSubuserResource:
+        """Update subuser.
+
+        Required permissions:
+            - `game_servers.subusers.update`
+        """
+        return self._service.subusers.update(self._resource_id, access_id, body=body)
+
+
+TGameServerData = TypeVar(
+    "TGameServerData", GameServerDetailResource, GameServerListItemResource
 )
 
 
 @dataclass(frozen=True, slots=True)
-class GameServer:
-    data: GameServerDetailResource
-    _service: Any = field(repr=False, compare=False)
-
-    def __getattr__(self, name: str) -> Any:
-        return _BoundService(
-            self._service, self.id, "", _GameServer_BOUND_METHODS
-        ).__getattr__(name)
+class GameServerHandle(Generic[TGameServerData]):
+    data: TGameServerData
+    _service: "ServersService" = field(repr=False, compare=False)
 
     @property
-    def auto_renew(self):
+    def activity(self) -> GameServerActivity:
+        return GameServerActivity(self._service, self.id)
+
+    @property
+    def allocations(self) -> GameServerAllocations:
+        return GameServerAllocations(self._service, self.id)
+
+    @property
+    def backups(self) -> GameServerBackups:
+        return GameServerBackups(self._service, self.id)
+
+    @property
+    def console(self) -> GameServerConsole:
+        return GameServerConsole(self._service, self.id)
+
+    @property
+    def databases(self) -> GameServerDatabases:
+        return GameServerDatabases(self._service, self.id)
+
+    @property
+    def domain(self) -> GameServerDomain:
+        return GameServerDomain(self._service, self.id)
+
+    @property
+    def files(self) -> GameServerFiles:
+        return GameServerFiles(self._service, self.id)
+
+    @property
+    def invites(self) -> GameServerInvites:
+        return GameServerInvites(self._service, self.id)
+
+    @property
+    def minecraft_installer(self) -> GameServerMinecraftInstaller:
+        return GameServerMinecraftInstaller(self._service, self.id)
+
+    @property
+    def operations(self) -> GameServerOperations:
+        return GameServerOperations(self._service, self.id)
+
+    @property
+    def power(self) -> GameServerPower:
+        return GameServerPower(self._service, self.id)
+
+    @property
+    def schedules(self) -> GameServerSchedules:
+        return GameServerSchedules(self._service, self.id)
+
+    @property
+    def sftp(self) -> GameServerSftp:
+        return GameServerSftp(self._service, self.id)
+
+    @property
+    def startup(self) -> GameServerStartup:
+        return GameServerStartup(self._service, self.id)
+
+    @property
+    def subusers(self) -> GameServerSubusers:
+        return GameServerSubusers(self._service, self.id)
+
+    def get(self) -> GameServer:
+        """Return a single game server accessible to the authenticated user.
+
+        Required permissions:
+            - `game_servers.view`
+        """
+        return self._service.get(self.id)
+
+    def update(
+        self, *, body: GameServerUpdateRequest | dict[str, Any]
+    ) -> GameServerDetailResource:
+        """Update owner-controlled server metadata.
+
+        Required permissions:
+            - `game_servers.settings.update`
+        """
+        return self._service.update(self.id, body=body)
+
+    @property
+    def expires_at(self) -> str | None:
+        return self.data.expires_at
+
+    @property
+    def id(self) -> str:
+        return self.data.id
+
+    @property
+    def name(self) -> str:
+        return self.data.name
+
+    @property
+    def permissions(self) -> list[ServerPermission] | None:
+        return self.data.permissions
+
+    @property
+    def primary_allocation(self) -> GameServerListPrimaryResource | None:
+        return self.data.primary_allocation
+
+    @property
+    def scheduled_delete_at(self) -> str | None:
+        return self.data.scheduled_delete_at
+
+    @property
+    def short_id(self) -> str:
+        return self.data.short_id
+
+    @property
+    def status(self) -> GameServerStatus:
+        return self.data.status
+
+
+class GameServer(GameServerHandle[GameServerDetailResource]):
+    __slots__ = ()
+
+    @property
+    def auto_renew(self) -> bool:
         return self.data.auto_renew
 
     @property
-    def availability(self):
+    def availability(self) -> ServerAvailability | None:
         return self.data.availability
 
     @property
-    def billing_currency(self):
+    def billing_currency(self) -> str | None:
         return self.data.billing_currency
 
     @property
-    def capabilities(self):
+    def capabilities(self) -> list[ServerPermission] | None:
         return self.data.capabilities
 
     @property
-    def cell(self):
+    def cell(self) -> GameServerCellSummaryResource:
         return self.data.cell
 
     @property
-    def created_at(self):
+    def created_at(self) -> str:
         return self.data.created_at
 
     @property
-    def description(self):
+    def description(self) -> str | None:
         return self.data.description
 
     @property
-    def docker_image(self):
+    def docker_image(self) -> str:
         return self.data.docker_image
 
     @property
-    def expires_at(self):
-        return self.data.expires_at
-
-    @property
-    def features(self):
+    def features(self) -> list[GameServerFeatureResource]:
         return self.data.features
 
     @property
-    def game(self):
+    def game(self) -> GameServerGameSummaryResource:
         return self.data.game
 
     @property
-    def id(self):
-        return self.data.id
-
-    @property
-    def is_custom_offer(self):
+    def is_custom_offer(self) -> bool:
         return self.data.is_custom_offer
 
     @property
-    def limits(self):
+    def limits(self) -> GameServerLimitsResource:
         return self.data.limits
 
     @property
-    def name(self):
-        return self.data.name
-
-    @property
-    def node(self):
+    def node(self) -> GameServerNodeSummaryResource:
         return self.data.node
 
     @property
-    def offer(self):
+    def offer(self) -> GameServerOfferSummaryResource | None:
         return self.data.offer
 
     @property
-    def operation_progress(self):
+    def operation_progress(self) -> GameServerOperationProgressResource | None:
         return self.data.operation_progress
 
     @property
-    def permissions(self):
-        return self.data.permissions
-
-    @property
-    def price(self):
+    def price(self) -> int:
         return self.data.price
 
     @property
-    def primary_allocation(self):
-        return self.data.primary_allocation
-
-    @property
-    def restore(self):
+    def restore(self) -> GameServerBackupRestoreProgressResource | None:
         return self.data.restore
 
     @property
-    def scheduled_delete_at(self):
-        return self.data.scheduled_delete_at
-
-    @property
-    def short_id(self):
-        return self.data.short_id
-
-    @property
-    def status(self):
-        return self.data.status
-
-    @property
-    def suspended_at(self):
+    def suspended_at(self) -> str | None:
         return self.data.suspended_at
 
     @property
-    def updated_at(self):
+    def updated_at(self) -> str:
         return self.data.updated_at
 
 
-_GameServerListItem_BOUND_METHODS = frozenset(
-    {
-        "activity.list",
-        "allocations.list",
-        "backups.create",
-        "backups.delete",
-        "backups.download",
-        "backups.get_settings",
-        "backups.list",
-        "backups.restores.create",
-        "backups.restores.get_active",
-        "backups.update_settings",
-        "console.get_token",
-        "databases.create",
-        "databases.delete",
-        "databases.get",
-        "databases.list",
-        "databases.reset_password",
-        "domain.delete",
-        "domain.get",
-        "domain.list_options",
-        "domain.set_subdomain",
-        "files.compress.create",
-        "files.contents.get",
-        "files.contents.write",
-        "files.create_directories",
-        "files.create_directory",
-        "files.decompress.cancel",
-        "files.decompress.create",
-        "files.decompress.get",
-        "files.decompress.get_active",
-        "files.delete",
-        "files.get_download_url",
-        "files.list",
-        "files.rename",
-        "files.search.cancel",
-        "files.search.get",
-        "get",
-        "invites.create",
-        "invites.delete",
-        "invites.list",
-        "minecraft-installer.list_builds",
-        "minecraft-installer.list_engines",
-        "minecraft-installer.list_versions",
-        "minecraft-installer.reinstall",
-        "operations.cancel",
-        "operations.get",
-        "operations.list",
-        "power.kill",
-        "power.reinstall",
-        "power.restart",
-        "power.start",
-        "power.stop",
-        "schedules.create",
-        "schedules.delete",
-        "schedules.get",
-        "schedules.list",
-        "schedules.run",
-        "schedules.runs.list",
-        "schedules.update",
-        "sftp.get_credentials",
-        "sftp.rotate_credentials",
-        "startup.get",
-        "startup.update",
-        "subusers.delete",
-        "subusers.list",
-        "subusers.update",
-        "update",
-    }
-)
-
-
-@dataclass(frozen=True, slots=True)
-class GameServerListItem:
-    data: GameServerListItemResource
-    _service: Any = field(repr=False, compare=False)
-
-    def __getattr__(self, name: str) -> Any:
-        return _BoundService(
-            self._service, self.id, "", _GameServerListItem_BOUND_METHODS
-        ).__getattr__(name)
+class GameServerListItem(GameServerHandle[GameServerListItemResource]):
+    __slots__ = ()
 
     @property
-    def expires_at(self):
-        return self.data.expires_at
-
-    @property
-    def game_name(self):
+    def game_name(self) -> str:
         return self.data.game_name
 
     @property
-    def id(self):
-        return self.data.id
-
-    @property
-    def limits(self):
+    def limits(self) -> GameServerListLimitsResource:
         return self.data.limits
 
     @property
-    def name(self):
-        return self.data.name
-
-    @property
-    def node_name(self):
+    def node_name(self) -> str:
         return self.data.node_name
-
-    @property
-    def permissions(self):
-        return self.data.permissions
-
-    @property
-    def primary_allocation(self):
-        return self.data.primary_allocation
-
-    @property
-    def scheduled_delete_at(self):
-        return self.data.scheduled_delete_at
-
-    @property
-    def short_id(self):
-        return self.data.short_id
-
-    @property
-    def status(self):
-        return self.data.status
 
 
 @dataclass(frozen=True, slots=True)
 class GameServerPage:
     data: PaginatedResponseGameServerListItemResource
-    _service: Any = field(repr=False, compare=False)
+    _service: "ServersService" = field(repr=False, compare=False)
 
     @property
     def items(self) -> list[GameServerListItem]:
@@ -372,17 +1105,17 @@ class GameServerPage:
         ]
 
     @property
-    def has_next(self):
+    def has_next(self) -> bool:
         return self.data.has_next
 
     @property
-    def limit(self):
+    def limit(self) -> int:
         return self.data.limit
 
     @property
-    def offset(self):
+    def offset(self) -> int:
         return self.data.offset
 
     @property
-    def total(self):
+    def total(self) -> int:
         return self.data.total

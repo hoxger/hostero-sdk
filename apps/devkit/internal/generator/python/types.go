@@ -24,31 +24,61 @@ const (
 )
 
 type Module struct {
-	Kind       ModuleKind
-	Path       string
-	Imports    []Import
-	Enums      []Enum
-	Models     []Model
-	Operations []Operation
-	Aliases    []Alias
-	Services   []ServiceClass
-	Resources  []Resource
-	Pages      []ResourcePage
-	Exports    []string
+	Kind          ModuleKind
+	Path          string
+	Imports       []Import
+	Enums         []Enum
+	Models        []Model
+	Operations    []Operation
+	Aliases       []Alias
+	Services      []ServiceClass
+	ResourceKinds []ResourceKind
+	Resources     []Resource
+	Pages         []ResourcePage
+	ServiceTypes  []string
+	Exports       []string
 }
 
 type Resource struct {
-	Name         string
-	ModelName    string
-	Fields       []Field
-	BoundMethods []string
+	Name       string
+	ModelName  string
+	HandleName string
+	Fields     []Field
+}
+
+type ResourceKind struct {
+	Name          string
+	HandleName    string
+	TypeVariable  string
+	ModelNames    []string
+	IDField       string
+	Fields        []Field
+	ServiceClass  string
+	Methods       []BoundMethod
+	SubServices   []BoundService
+	BoundServices []BoundService
+}
+
+type BoundService struct {
+	Name             string
+	ClassName        string
+	RootServiceClass string
+	ServicePath      []string
+	Methods          []BoundMethod
+	SubServices      []BoundService
+}
+
+type BoundMethod struct {
+	Method      ServiceMethod
+	ServicePath []string
 }
 
 type ResourcePage struct {
-	Name      string
-	ModelName string
-	ItemName  string
-	Fields    []Field
+	Name         string
+	ModelName    string
+	ItemName     string
+	Fields       []Field
+	ServiceClass string
 }
 
 type Import struct {

@@ -130,7 +130,7 @@ from .models import (
     ValidationErrorResponse,
 )
 from .operations import OPERATIONS, Operation
-from .resources import GameServer, GameServerListItem, GameServerPage
+from .resources import GameServer, GameServerHandle, GameServerListItem, GameServerPage
 from .services import (
     GameFeaturesMinecraftInstallerService,
     GameFeaturesService,
@@ -229,6 +229,7 @@ __all__ = [
     "GameServerFolderResource",
     "GameServerFolderUpdateRequest",
     "GameServerGameSummaryResource",
+    "GameServerHandle",
     "GameServerInviteCreateRequest",
     "GameServerLimitsResource",
     "GameServerListItem",
