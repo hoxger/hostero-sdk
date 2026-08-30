@@ -33,8 +33,29 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Read release state
+        id: release-state
+        run: |
+          version=$(jq --raw-output '."packages/python"' .release-please-manifest.json)
+          if [ "$version" = '0.0.0' ]; then
+            echo 'initialized=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'initialized=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require the initial beta version
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.release-state.outputs.initialized == 'false' }}
+        env:
+          RELEASE_AS: ${{ inputs.release_as }}
+        run: |
+          if [ "$RELEASE_AS" != '0.1.0-beta.1' ]; then
+            echo 'The first release must be dispatched with release_as=0.1.0-beta.1.' >&2
+            exit 1
+          fi
+
       - name: Run Release Please
         id: release-please
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.release-state.outputs.initialized == 'true' }}
         uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
         with:
           config-file: release-please-config.json
@@ -65,7 +86,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add packages/python/uv.lock
-          git commit --only -m 'chore(python): synchronize release lockfile'
+          git commit -m 'chore(python): synchronize release lockfile'
           git push origin "HEAD:$branch"
 
   build:
