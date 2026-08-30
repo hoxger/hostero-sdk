@@ -74,3 +74,31 @@ tasks:
     dir: packages/python
     cmds:
       - uv run pytest
+
+  python:build:
+    desc: Build Python SDK wheel and source distribution.
+    dir: packages/python
+    cmds:
+      - uv lock --locked
+      - rm -rf dist
+      - uv build
+
+  python:verify-release:
+    desc: Verify Python SDK release version and distribution metadata.
+    dir: packages/python
+    cmds:
+      - uv run python ../../scripts/verify_python_release.py --tag "${EXPECTED_TAG:-}"
+
+  python:smoke:
+    desc: Install the built Python SDK artifacts in clean virtual environments.
+    dir: packages/python
+    cmds:
+      - sh ../../scripts/smoke_python_package.sh dist
+
+  release:check:
+    desc: Run the complete local Python SDK release gate without publishing.
+    cmds:
+      - task: check
+      - task: python:build
+      - task: python:verify-release
+      - task: python:smoke

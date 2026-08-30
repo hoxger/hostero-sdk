@@ -2,13 +2,24 @@
 name = "hostero"
 version = "0.0.0"
 description = "Python SDK for the Hostero API."
+readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [
+    { name = "Hoxger Sp. z o.o." },
+]
 dependencies = [
     "httpx>=0.28.1,<1.0",
 ]
 
+[project.urls]
+Homepage = "https://hostero.gg"
+Repository = "https://github.com/hoxger/hostero-sdk"
+Issues = "https://github.com/hoxger/hostero-sdk/issues"
+
 [dependency-groups]
 dev = [
+    "packaging>=25,<27",
     "pytest>=9.1.1",
     "ruff>=0.16.5",
     "ty>=0.0.75",
