@@ -34,18 +34,9 @@ jobs:
           version=$(jq --raw-output '."packages/python"' .release-please-manifest.json)
           if [ "$version" = '0.0.0' ]; then
             echo 'initialized=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'initialized=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Prepare Release Please configuration
-        id: release-config
-        run: |
-          if [ "${{ steps.release-state.outputs.initialized }}" = 'false' ]; then
-            jq '.packages["packages/python"]["release-as"] = "0.1.0-beta.1"' \
-              release-please-config.json > .release-please-bootstrap-config.json
             echo 'config_file=.release-please-bootstrap-config.json' >> "$GITHUB_OUTPUT"
           else
+            echo 'initialized=true' >> "$GITHUB_OUTPUT"
             echo 'config_file=release-please-config.json' >> "$GITHUB_OUTPUT"
           fi
 
@@ -54,8 +45,20 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || steps.release-state.outputs.initialized == 'true' }}
         uses: googleapis/release-please-action@8b8fd2cc23b2e18957157a9d923d75aa0c6f6ad5 # v4
         with:
-          config-file: ${{ steps.release-config.outputs.config_file }}
+          config-file: ${{ steps.release-state.outputs.config_file }}
           manifest-file: .release-please-manifest.json
+
+      - name: Remove consumed bootstrap configuration
+        if: ${{ steps.release-please.outputs['packages/python--release_created'] == 'true' && steps.release-state.outputs.initialized == 'true' }}
+        run: |
+          if [ ! -f .release-please-bootstrap-config.json ]; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .release-please-bootstrap-config.json
+          git commit -m 'chore(release): remove consumed Python bootstrap configuration'
+          git push origin HEAD:main
 
       - name: Set up uv for release pull request
         if: ${{ steps.release-please.outputs.prs_created == 'true' }}
