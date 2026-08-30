@@ -1,0 +1,17 @@
+{
+  "packages": {
+    "packages/python": {
+      "release-type": "python",
+      "package-name": "hostero",
+      "component": "python",
+      "include-component-in-tag": true,
+      "include-v-in-tag": true,
+      "tag-separator": "-",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "beta",
+      "draft": true,
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

@@ -176,7 +176,7 @@ func buildResources(source contract.Document, models []Model, symbols symbols) (
 			return nil, nil, nil, bindings, refs, fmt.Errorf("resource kind %q: %w", sourceResource.Kind, err)
 		}
 		name := strings.TrimSuffix(model.Name, "Resource")
-		if before, ok :=strings.CutSuffix(name, "Detail"); ok  {
+		if before, ok := strings.CutSuffix(name, "Detail"); ok {
 			name = before
 		}
 		if name == "" {
