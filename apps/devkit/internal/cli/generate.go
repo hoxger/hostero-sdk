@@ -50,7 +50,9 @@ func runGenerate(cmd *cobra.Command, _ []string) error {
 		if err := python.Write(workingDirectory, target.Output, files); err != nil {
 			return fmt.Errorf("write Python SDK: %w", err)
 		}
-		_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Generated Python SDK in %s/_generated\n", filepath.ToSlash(target.Output))
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Generated Python SDK in %s/_generated\n", filepath.ToSlash(target.Output)); err != nil {
+			return fmt.Errorf("write generate output: %w", err)
+		}
 	}
 	return nil
 }

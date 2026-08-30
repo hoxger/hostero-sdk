@@ -66,11 +66,13 @@ func runUpdate(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("update OpenAPI lock: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(
+	if _, err := fmt.Fprintf(
 		cmd.OutOrStdout(),
 		"Updated OpenAPI snapshot (release %s, sha256 %s)\n",
 		document.Release,
 		document.SHA256[:12],
-	)
+	); err != nil {
+		return fmt.Errorf("write update output: %w", err)
+	}
 	return nil
 }

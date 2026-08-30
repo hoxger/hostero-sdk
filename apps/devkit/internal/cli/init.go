@@ -75,13 +75,15 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(
+	if _, err := fmt.Fprintf(
 		writer,
 		"\nCreated %s\nCreated %s\nCreated %s\n\nNext: hostero-devkit update && hostero-devkit generate\n",
 		config.FileName,
 		configuration.OpenAPI.Snapshot,
 		lock.FileName,
-	)
+	); err != nil {
+		return fmt.Errorf("write output: %w", err)
+	}
 	return nil
 }
 
@@ -122,12 +124,16 @@ func promptOutput(reader *bufio.Reader, writer io.Writer, defaultValue string) (
 			return output, nil
 		}
 
-		_, _ = fmt.Fprintln(writer, "Output must stay inside the current project directory.")
+		if _, err := fmt.Fprintln(writer, "Output must stay inside the current project directory."); err != nil {
+			return "", fmt.Errorf("write output: %w", err)
+		}
 	}
 }
 
 func prompt(reader *bufio.Reader, writer io.Writer, label string, defaultValue string) (string, error) {
-	_, _ = fmt.Fprintf(writer, "? %s [%s]: ", label, defaultValue)
+	if _, err := fmt.Fprintf(writer, "? %s [%s]: ", label, defaultValue); err != nil {
+		return "", fmt.Errorf("write prompt: %w", err)
+	}
 	value, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("read %s: %w", strings.ToLower(label), err)

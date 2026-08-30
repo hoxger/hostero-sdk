@@ -748,7 +748,7 @@ func formatPathExpr(path string, pathParamsMap map[string]contract.Parameter) (s
 		if err != nil {
 			return "", err
 		}
-		builder.WriteString(fmt.Sprintf("{_quote_path(str(%s), safe='')}", pyName))
+		_, _ = fmt.Fprintf(&builder, "{_quote_path(str(%s), safe='')}", pyName)
 		lastIndex = end + 1
 	}
 
