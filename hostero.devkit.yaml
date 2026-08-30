@@ -1,0 +1,9 @@
+version: 1
+openapi:
+  source:
+    kind: url
+    url: https://beta-api.hostero.gg/v1/openapi.json
+  snapshot: ./openapi/hostero.openapi.json
+targets:
+  - language: python
+    output: ./packages/python/src/hostero

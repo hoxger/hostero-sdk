@@ -1,0 +1,76 @@
+version: "3"
+
+tasks:
+  default:
+    desc: Run all repository checks.
+    cmds:
+      - task: check
+
+  format:
+    desc: Format Go source files.
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Verify Go formatting and run static analysis.
+    cmds:
+      - test -z "$(gofmt -l .)"
+      - go vet ./...
+
+  test:
+    desc: Run all test suites.
+    cmds:
+      - task: devkit:test
+      - task: python:test
+
+  devkit:test:
+    desc: Run DevKit Go unit tests.
+    dir: apps/devkit
+    cmds:
+      - go test ./...
+
+  build:
+    desc: Build the Hostero DevKit CLI.
+    cmds:
+      - mkdir -p bin
+      - go build -o bin/hostero-devkit ./apps/devkit/cmd/hostero-devkit
+
+  check:
+    desc: Run repository and Python SDK checks.
+    cmds:
+      - task: lint
+      - task: devkit:test
+      - task: build
+      - task: python:check
+
+  python:check:
+    desc: Run Python SDK formatting, linting, type checks, and tests.
+    cmds:
+      - task: python:format
+      - task: python:lint
+      - task: python:types
+      - task: python:test
+
+  python:format:
+    desc: Verify Python SDK formatting.
+    dir: packages/python
+    cmds:
+      - uv run ruff format --check .
+
+  python:lint:
+    desc: Lint the Python SDK.
+    dir: packages/python
+    cmds:
+      - uv run ruff check .
+
+  python:types:
+    desc: Type-check the Python SDK.
+    dir: packages/python
+    cmds:
+      - uv run ty check src tests
+
+  python:test:
+    desc: Run Python SDK tests.
+    dir: packages/python
+    cmds:
+      - uv run pytest

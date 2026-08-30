@@ -1,0 +1,15 @@
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: test -z "$(gofmt -l .)"
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+    ruff-format:
+      glob: "packages/python/**/*.py"
+      run: cd packages/python && uv run ruff format --check .
+    ruff-lint:
+      glob: "packages/python/**/*.py"
+      run: cd packages/python && uv run ruff check .
