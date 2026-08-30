@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       retry_tag:
-        description: Existing draft Python release tag to rebuild and publish after a failed release run.
+        description: Existing draft Python release tag to rebuild, publish, and finalize after a failed release run.
         required: false
         type: string
 
@@ -172,6 +172,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           packages-dir: dist
+          skip-existing: ${{ inputs.retry_tag != '' }}
 
   finalize:
     name: Finalize GitHub release
@@ -193,5 +194,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.release.outputs.tag_name }}
         run: |
-          gh release upload "$RELEASE_TAG" dist/* --clobber
-          gh release edit "$RELEASE_TAG" --draft=false
+          gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$RELEASE_TAG" --draft=false --repo "$GITHUB_REPOSITORY"
